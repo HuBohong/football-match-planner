@@ -10,6 +10,8 @@ in the user's chosen timezone.
 - Each card shows the competition, teams, and a sample kickoff time.
 - Cards show time and competition above two equally sized team columns with a central VS label.
 - Today, Tomorrow, and +2 days chips filter fixtures by date; a message appears on empty days.
+- The default Upcoming view groups demo fixtures under date headings, ordered by date and sample time.
+- Date headings include the weekday and Today/Tomorrow labels and are marked as accessibility headings.
 - Demo dates are relative to the device's current date (two fixtures today, one tomorrow).
 - Bottom navigation and the Settings placeholder are retained from the starter.
 - Real API data, competition/team filtering, and timezone conversion are not implemented yet.

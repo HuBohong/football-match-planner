@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +36,15 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -111,9 +117,15 @@ private fun createDemoFixtures(today: LocalDate) = listOf(
 fun UtilityScreen() {
     val today = LocalDate.now()
     val demoFixtures = remember(today) { createDemoFixtures(today) }
-    var selectedDayOffset by rememberSaveable { mutableIntStateOf(0) }
+    // -1 selects the upcoming list; 0, 1, and 2 select an individual day.
+    var selectedDayOffset by rememberSaveable { mutableIntStateOf(-1) }
     val selectedDate = today.plusDays(selectedDayOffset.toLong())
-    val visibleFixtures = demoFixtures.filter { it.date == selectedDate }
+    val visibleFixtures = demoFixtures.filter {
+        if (selectedDayOffset == -1) !it.date.isBefore(today) else it.date == selectedDate
+    }
+    val fixturesByDate = visibleFixtures
+        .sortedWith(compareBy<MatchFixture> { it.date }.thenBy { it.kickoffTime })
+        .groupBy { it.date }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -127,8 +139,12 @@ fun UtilityScreen() {
             }
         }
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("Today", "Tomorrow", "+2 days").forEachIndexed { offset, label ->
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(-1 to "Upcoming", 0 to "Today", 1 to "Tomorrow", 2 to "+2 days")
+                    .forEach { (offset, label) ->
                     FilterChip(
                         selected = selectedDayOffset == offset,
                         onClick = { selectedDayOffset = offset },
@@ -137,18 +153,38 @@ fun UtilityScreen() {
                 }
             }
         }
-        item {
-            Text(selectedDate.toString(), style = MaterialTheme.typography.titleMedium)
-        }
         if (visibleFixtures.isEmpty()) {
+            item {
+                DateHeader(selectedDate, today)
+            }
             item {
                 Text("No demo matches on this date.", style = MaterialTheme.typography.bodyLarge)
             }
         }
-        items(visibleFixtures) { match ->
-            MatchCard(match)
+        fixturesByDate.forEach { (date, matches) ->
+            item(key = "date-$date") {
+                DateHeader(date, today)
+            }
+            items(matches) { match ->
+                MatchCard(match)
+            }
         }
     }
+}
+
+@Composable
+fun DateHeader(date: LocalDate, today: LocalDate) {
+    val relativeLabel = when (date) {
+        today -> " · Today"
+        today.plusDays(1) -> " · Tomorrow"
+        else -> ""
+    }
+    Text(
+        text = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)) + relativeLabel,
+        modifier = Modifier.fillMaxWidth().semantics { heading() },
+        style = MaterialTheme.typography.titleMedium,
+        textAlign = TextAlign.Center
+    )
 }
 
 @Composable
