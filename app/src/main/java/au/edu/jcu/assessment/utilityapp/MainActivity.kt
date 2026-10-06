@@ -7,12 +7,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -21,7 +25,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -81,21 +84,59 @@ fun UtilityApp() {
     }
 }
 
+// Display-only sample data; these are not real fixtures or converted kickoff times.
+data class MatchFixture(
+    val competition: String,
+    val homeTeam: String,
+    val awayTeam: String,
+    val kickoffTime: String
+)
+
+private val demoFixtures = listOf(
+    MatchFixture("Premier League", "Arsenal", "Chelsea", "20:30"),
+    MatchFixture("Champions League", "Barcelona", "Bayern Munich", "03:00"),
+    MatchFixture("La Liga", "Real Madrid", "Atletico Madrid", "22:00")
+)
+
 @Composable
 fun UtilityScreen() {
-    var counter by remember { mutableIntStateOf(0) }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Utility Screen", style = MaterialTheme.typography.headlineMedium)
-        Text("Counter: $counter", style = MaterialTheme.typography.bodyLarge)
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
+                Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+            }
+        }
+        items(demoFixtures) { match ->
+            MatchCard(match)
+        }
+    }
+}
 
-        Button(onClick = { counter++ }) {
-            Text("Increment")
+@Composable
+fun MatchCard(match: MatchFixture) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = match.competition,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = "${match.homeTeam} vs ${match.awayTeam}",
+                style = MaterialTheme.typography.titleLarge
+            )
+            Text(
+                text = "Kickoff: ${match.kickoffTime}",
+                style = MaterialTheme.typography.bodyLarge
+            )
         }
     }
 }

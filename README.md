@@ -1,4 +1,17 @@
-# MobileTech Utility App
+# Football Match Planner
+
+Built from the lecturer's MobileTech Utility App starter for CP3406 Assessment 1.
+The planned purpose is to bring football fixtures together and display kickoff times
+in the user's chosen timezone.
+
+## Current progress
+
+- The Utility screen displays three fictional fixtures in a scrollable list of Material 3 cards.
+- Each card shows the competition, teams, and a sample kickoff time.
+- Bottom navigation and the Settings placeholder are retained from the starter.
+- Real API data, date selection, filtering, and timezone conversion are not implemented yet.
+
+## Original starter documentation
 
 This is a basic Android app template for **Assessment 1: Utility App**.
 It provides the structure for a simple tabular UI using **Jetpack Compose** and **Material Design 3**.
