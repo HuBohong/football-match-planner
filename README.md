@@ -8,8 +8,10 @@ in the user's chosen timezone.
 
 - The Utility screen displays three fictional fixtures in a scrollable list of Material 3 cards.
 - Each card shows the competition, teams, and a sample kickoff time.
+- Today, Tomorrow, and +2 days chips filter fixtures by date; a message appears on empty days.
+- Demo dates are relative to the device's current date (two fixtures today, one tomorrow).
 - Bottom navigation and the Settings placeholder are retained from the starter.
-- Real API data, date selection, filtering, and timezone conversion are not implemented yet.
+- Real API data, competition/team filtering, and timezone conversion are not implemented yet.
 
 ## Original starter documentation
 
