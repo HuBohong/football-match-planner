@@ -25,7 +25,8 @@ in the user's chosen timezone.
 - TeamPreferencesRepository handles disk reads/writes; TeamPreferencesViewModel exposes loading, saving, and error state to Compose.
 - The Activity provides the repository through a ViewModel factory (manual dependency injection); loading does not briefly show the first-use prompt.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
-- Settings is a placeholder for future timezone and time format preferences.
+- Settings includes a 24-hour time switch; disabling it displays kickoff times in 12-hour format with AM/PM.
+- Time format is shared with the schedule and survives tab switches and configuration changes, but is not stored permanently.
 - Real API data and timezone conversion are not implemented yet. Competition and date filters are not stored permanently.
 
 ## Original starter documentation

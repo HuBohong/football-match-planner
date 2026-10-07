@@ -38,6 +38,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,6 +61,7 @@ import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
 import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -103,6 +105,7 @@ fun UtilityApp(
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
     // Kept above the screen so changing tabs does not discard the filter.
     var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
+    var use24HourFormat by rememberSaveable { mutableStateOf(true) }
 
     Scaffold(
         bottomBar = {
@@ -150,9 +153,13 @@ fun UtilityApp(
                         selectedCompetition = selectedCompetition,
                         onCompetitionSelected = { selectedCompetition = it },
                         followedTeams = followedTeams,
-                        onTeamsSelected = onTeamsSelected
+                        onTeamsSelected = onTeamsSelected,
+                        use24HourFormat = use24HourFormat
                     )
-                    "Settings" -> SettingsScreen()
+                    "Settings" -> SettingsScreen(
+                        use24HourFormat = use24HourFormat,
+                        onTimeFormatChanged = { use24HourFormat = it }
+                    )
                 }
             }
         }
@@ -186,7 +193,8 @@ fun UtilityScreen(
     selectedCompetition: String,
     onCompetitionSelected: (String) -> Unit,
     followedTeams: List<String>,
-    onTeamsSelected: (List<String>) -> Unit
+    onTeamsSelected: (List<String>) -> Unit,
+    use24HourFormat: Boolean
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
@@ -271,7 +279,7 @@ fun UtilityScreen(
                     DateHeader(date, today)
                 }
                 items(matches) { match ->
-                    MatchCard(match)
+                    MatchCard(match, use24HourFormat)
                 }
             }
         }
@@ -401,7 +409,10 @@ fun DateHeader(date: LocalDate, today: LocalDate) {
 }
 
 @Composable
-fun MatchCard(match: MatchFixture) {
+fun MatchCard(match: MatchFixture, use24HourFormat: Boolean) {
+    val displayedTime = LocalTime.parse(match.kickoffTime).format(
+        DateTimeFormatter.ofPattern(if (use24HourFormat) "HH:mm" else "h:mm a", Locale.ENGLISH)
+    )
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
@@ -409,7 +420,7 @@ fun MatchCard(match: MatchFixture) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = "${match.kickoffTime} · ${match.competition}",
+                text = "$displayedTime · ${match.competition}",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
@@ -485,12 +496,36 @@ fun CompetitionFilterDialog(
 }
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(
+    use24HourFormat: Boolean,
+    onTimeFormatChanged: (Boolean) -> Unit
+) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Text("Timezone and time format preferences will be added here in a later step.")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .toggleable(
+                    value = use24HourFormat,
+                    role = Role.Switch,
+                    onValueChange = onTimeFormatChanged
+                )
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Use 24-hour time", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (use24HourFormat) "Example: 20:30" else "Example: 8:30 PM",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Switch(checked = use24HourFormat, onCheckedChange = null)
+        }
     }
 }
