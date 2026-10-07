@@ -6,33 +6,35 @@ in the user's chosen timezone.
 
 ## Current progress
 
-- The Utility screen displays four fictional fixtures in a scrollable list of Material 3 cards.
-- Each card shows the competition, teams, and a sample kickoff time.
-- Cards show time and competition above two equally sized team columns with a central VS label.
-- Yesterday, Today, and Upcoming chips filter fixtures; a message appears when no fixtures match.
-- Finished fixtures show a score and Finished label. Scheduled fixtures show VS and a Scheduled label.
-- Upcoming includes only scheduled fixtures whose actual kickoff is in the future; Today shows all fixtures on the selected timezone's current date.
-- The default Upcoming view groups demo fixtures under date headings, ordered by date and sample time.
-- Date headings include the weekday and Today/Tomorrow labels and are marked as accessibility headings.
-- Demo fixtures are anchored once per app composition to the device's date/timezone (one finished yesterday, two scheduled today, one tomorrow), then stored as absolute kickoff instants.
-- A Filter button on the schedule opens a competition dialog (All competitions, Premier League, La Liga, Champions League).
-- Selecting an option immediately updates the schedule and closes the dialog; Close, Back, or outside dismissal leaves the selection unchanged.
-- The filter works together with the date filter and survives tab switches and configuration changes.
-- My teams opens a multi-select dialog with six sample teams grouped by domestic league.
-- Done applies the selected teams; Cancel, Back, or outside dismissal discards draft changes.
-- Fixtures match when either the home or away team is followed, combined with date and competition filters.
-- With no followed teams, the home screen shows a Choose my teams prompt instead of the fixture list.
-- Completing team selection opens the schedule; cancelling keeps the current view. Removing every followed team returns to the prompt.
-- Followed teams are stored locally with Preferences DataStore and restored when the app restarts.
-- TeamPreferencesRepository handles disk reads/writes; TeamPreferencesViewModel exposes loading, saving, and error state to Compose.
-- The Activity provides the repository through a ViewModel factory (manual dependency injection); loading does not briefly show the first-use prompt.
-- Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
-- Settings includes a 24-hour time switch; disabling it displays kickoff times in 12-hour format with AM/PM.
-- Time format is shared with the schedule and survives tab switches and configuration changes, but is not stored permanently.
-- Settings offers Phone timezone, Beijing, Brisbane, London, and UTC.
-- Settings shows the demo-data notice, active timezone, competition filter, and followed teams in a Schedule information card; the home screen focuses on controls and fixtures.
-- Times, date filters, and date groups use the same timezone conversion. Ordering uses actual kickoff instants, including across daylight-saving changes.
-- Real API data is not implemented yet. Timezone, time format, competition and date filters are not stored permanently.
+- Real current-season Premier League teams and fixtures from [football-data.org](https://www.football-data.org/).
+- Retrofit and Gson fetch and parse two requests per load: teams and matches. No automatic polling.
+- FootballRepository maps API timestamps, match statuses and nullable scores to display models.
+- FootballViewModel exposes loading, success and retryable error states. The Activity injects its repository through a factory.
+- My teams selects current Premier League teams; selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
+- Previously followed teams outside current coverage remain available to remove. Their matches are not yet fetched.
+- Yesterday, Today and Upcoming filter followed teams' matches. Upcoming includes future scheduled fixtures, grouped and ordered by kickoff.
+- Home offers a competition filter and equally sized period controls. Cards show opposing teams, kickoff, status and available scores.
+- Settings controls 12/24-hour time and timezone (Device, Beijing, Brisbane, London, UTC), and shows source, coverage and update time.
+- All date filtering and grouping use the selected timezone. Settings survive configuration changes, but are not permanently stored.
+- Free-plan scores may be delayed; schedules can change. Data is fetched when the ViewModel is created, with Retry on failure. There is no offline cache yet.
+- Planned later coverage: Champions League, Serie A, Ligue 1, La Liga, Bundesliga and World Cup. These are not yet integrated.
+
+## API setup
+
+Add your own token to the project-root `local.properties` alongside the existing SDK path:
+
+```properties
+FOOTBALL_API_TOKEN=your_token_here
+```
+
+Sync Gradle and rebuild. `local.properties` is ignored by Git; do not commit API credentials.
+The build injects the token into BuildConfig; a compiled APK contains the credential, so this classroom setup is not suitable for protecting a production secret.
+An internet connection and an account with Premier League access are required.
+
+## Validation
+
+Run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest`.
+Tests cover UTC/local-date conversion, daylight-saving ordering, date filters, saved team restoration, authenticated Retrofit requests, score/status parsing and denied API access.
 
 ## Original starter documentation
 
@@ -86,6 +88,6 @@ It provides the structure for a simple tabular UI using **Jetpack Compose** and 
 
 ---
 
-## 📚 License
+## 馃摎 License
 This template is provided for educational use in CP3406.  
 Feel free to modify and extend it for your assessment.

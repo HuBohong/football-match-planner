@@ -42,7 +42,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,6 +54,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import au.edu.jcu.assessment.utilityapp.data.FootballRepository
+import au.edu.jcu.assessment.utilityapp.data.FootballSchedule
+import au.edu.jcu.assessment.utilityapp.data.remote.FootballApiFactory
+import au.edu.jcu.assessment.utilityapp.ui.FootballUiState
+import au.edu.jcu.assessment.utilityapp.ui.FootballViewModel
 import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
 import au.edu.jcu.assessment.utilityapp.data.MatchFixture
 import au.edu.jcu.assessment.utilityapp.data.MatchStatus
@@ -65,7 +69,6 @@ import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
 import java.time.Instant
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -75,16 +78,24 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val factory = TeamPreferencesViewModel.Factory(TeamPreferencesRepository.from(this))
+        val footballFactory = FootballViewModel.Factory(
+            FootballRepository(FootballApiFactory.create(BuildConfig.FOOTBALL_API_TOKEN)),
+            BuildConfig.FOOTBALL_API_TOKEN.isNotBlank()
+        )
         setContent {
             MobileTech_UtilityAppTheme {
                 val teamViewModel: TeamPreferencesViewModel = viewModel(factory = factory)
                 val preferences by teamViewModel.uiState.collectAsStateWithLifecycle()
+                val footballViewModel: FootballViewModel = viewModel(factory = footballFactory)
+                val footballState by footballViewModel.uiState.collectAsStateWithLifecycle()
                 UtilityApp(
                     followedTeams = preferences.followedTeams,
                     onTeamsSelected = teamViewModel::saveTeams,
                     isSaving = preferences.isSaving,
                     errorMessage = preferences.errorMessage,
-                    onRetry = teamViewModel::loadTeams
+                    onRetry = teamViewModel::loadTeams,
+                    footballState = footballState,
+                    onRetrySchedule = footballViewModel::loadSchedule
                 )
             }
         }
@@ -105,7 +116,9 @@ fun UtilityApp(
     onTeamsSelected: (List<String>) -> Unit = {},
     isSaving: Boolean = false,
     errorMessage: String? = null,
-    onRetry: () -> Unit = {}
+    onRetry: () -> Unit = {},
+    footballState: FootballUiState = FootballUiState(isLoading = false),
+    onRetrySchedule: () -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
     // Kept above the screen so changing tabs does not discard the filter.
@@ -113,8 +126,6 @@ fun UtilityApp(
     var use24HourFormat by rememberSaveable { mutableStateOf(true) }
     var selectedTimezone by rememberSaveable { mutableStateOf("Device") }
     val displayZone = if (selectedTimezone == "Device") ZoneId.systemDefault() else ZoneId.of(selectedTimezone)
-    // Generate once per app composition, independently of the chosen display timezone.
-    val demoFixtures = remember { createDemoFixtures(LocalDate.now(), ZoneId.systemDefault()) }
 
     Scaffold(
         bottomBar = {
@@ -158,14 +169,17 @@ fun UtilityApp(
                 }
             } else {
                 when (selectedTab) {
-                    "Utility" -> UtilityScreen(
+                    "Utility" -> if (footballState.schedule == null) {
+                        ScheduleLoadScreen(footballState, onRetrySchedule)
+                    } else UtilityScreen(
                         selectedCompetition = selectedCompetition,
                         onCompetitionSelected = { selectedCompetition = it },
                         followedTeams = followedTeams,
                         onTeamsSelected = onTeamsSelected,
                         use24HourFormat = use24HourFormat,
                         displayZone = displayZone,
-                        demoFixtures = demoFixtures
+                        fixtures = footballState.schedule.fixtures,
+                        teamsByLeague = footballState.schedule.teamsByLeague
                     )
                     "Settings" -> SettingsScreen(
                         use24HourFormat = use24HourFormat,
@@ -174,7 +188,8 @@ fun UtilityApp(
                         onTimezoneChanged = { selectedTimezone = it },
                         displayZone = displayZone,
                         selectedCompetition = selectedCompetition,
-                        followedTeams = followedTeams
+                        followedTeams = followedTeams,
+                        schedule = footballState.schedule
                     )
                 }
             }
@@ -182,24 +197,21 @@ fun UtilityApp(
     }
 }
 
-// Fictional fixtures initially anchored to the device date/timezone, converted to instants.
-private fun createDemoFixtures(today: LocalDate, sourceZone: ZoneId) = listOf(
-    MatchFixture("Champions League", "Arsenal", "Bayern Munich",
-        today.minusDays(1).atTime(LocalTime.of(20, 0)).atZone(sourceZone).toInstant(),
-        status = MatchStatus.FINISHED, homeScore = 2, awayScore = 1),
-    MatchFixture("Premier League", "Arsenal", "Chelsea",
-        today.atTime(LocalTime.of(20, 30)).atZone(sourceZone).toInstant()),
-    MatchFixture("La Liga", "Real Madrid", "Atletico Madrid",
-        today.atTime(LocalTime.of(22, 0)).atZone(sourceZone).toInstant()),
-    MatchFixture("Champions League", "Barcelona", "Bayern Munich",
-        today.plusDays(1).atTime(LocalTime.of(3, 0)).atZone(sourceZone).toInstant())
-)
-
-private val demoTeamsByLeague = linkedMapOf(
-    "Premier League" to listOf("Arsenal", "Chelsea"),
-    "La Liga" to listOf("Atletico Madrid", "Barcelona", "Real Madrid"),
-    "Bundesliga" to listOf("Bayern Munich")
-)
+@Composable
+fun ScheduleLoadScreen(state: FootballUiState, onRetry: () -> Unit) {
+    Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (state.isLoading) {
+                CircularProgressIndicator()
+                Text("Loading Premier League matches…")
+            } else {
+                Text(state.errorMessage ?: "No schedule loaded.", textAlign = TextAlign.Center)
+                Button(onClick = onRetry) { Text("Retry") }
+            }
+        }
+    }
+}
 
 @Composable
 fun UtilityScreen(
@@ -209,7 +221,8 @@ fun UtilityScreen(
     onTeamsSelected: (List<String>) -> Unit,
     use24HourFormat: Boolean,
     displayZone: ZoneId,
-    demoFixtures: List<MatchFixture>
+    fixtures: List<MatchFixture>,
+    teamsByLeague: Map<String, List<String>>
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
@@ -217,7 +230,7 @@ fun UtilityScreen(
     val today = now.atZone(displayZone).toLocalDate()
     var selectedPeriod by rememberSaveable { mutableStateOf(SchedulePeriod.UPCOMING) }
     val selectedDate = if (selectedPeriod == SchedulePeriod.YESTERDAY) today.minusDays(1) else today
-    val visibleFixtures = demoFixtures.filter { match ->
+    val visibleFixtures = fixtures.filter { match ->
         val matchesDate = match.matchesPeriod(selectedPeriod, now, displayZone)
         val matchesCompetition = selectedCompetition == "All competitions" ||
             match.competition == selectedCompetition
@@ -279,7 +292,7 @@ fun UtilityScreen(
                     }
                 }
                 item {
-                    Text("No demo matches match these filters.", style = MaterialTheme.typography.bodyLarge)
+                    Text("No matches for these filters.", style = MaterialTheme.typography.bodyLarge)
                 }
             }
             fixturesByDate.forEach { (date, matches) ->
@@ -295,6 +308,7 @@ fun UtilityScreen(
     if (showFilterDialog) {
         CompetitionFilterDialog(
             selectedCompetition = selectedCompetition,
+            competitions = teamsByLeague.keys.toList(),
             onCompetitionSelected = {
                 onCompetitionSelected(it)
                 showFilterDialog = false
@@ -305,6 +319,7 @@ fun UtilityScreen(
     if (showTeamsDialog) {
         MyTeamsDialog(
             followedTeams = followedTeams,
+            teamsByLeague = teamsByLeague,
             onSave = {
                 onTeamsSelected(it)
                 showTeamsDialog = false
@@ -349,14 +364,18 @@ fun ChooseTeamsPrompt(onChooseTeams: () -> Unit) {
 @Composable
 fun MyTeamsDialog(
     followedTeams: List<String>,
+    teamsByLeague: Map<String, List<String>>,
     onSave: (List<String>) -> Unit,
     onDismiss: () -> Unit
 ) {
     // Edit a draft so Cancel/Back cannot change the active schedule filter.
     var draftTeams by rememberSaveable { mutableStateOf(ArrayList(followedTeams)) }
+    val unavailableTeams = followedTeams - teamsByLeague.values.flatten().toSet()
+    val selectableTeams = teamsByLeague + if (unavailableTeams.isEmpty()) emptyMap()
+        else mapOf("Previously followed · not in current coverage" to unavailableTeams)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("My teams · Demo") },
+        title = { Text("My teams") },
         confirmButton = {
             TextButton(onClick = { onSave(draftTeams) }) { Text("Done") }
         },
@@ -366,7 +385,7 @@ fun MyTeamsDialog(
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 Text("Choose teams to follow. Selecting none returns to the team selection prompt.")
-                demoTeamsByLeague.forEach { (league, teams) ->
+                selectableTeams.forEach { (league, teams) ->
                     Text(
                         text = league,
                         modifier = Modifier.padding(top = 16.dp).semantics { heading() },
@@ -418,7 +437,7 @@ fun DateHeader(date: LocalDate, today: LocalDate) {
 
 @Composable
 fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId) {
-    val displayedTime = match.kickoff.atZone(displayZone).format(
+    val displayedTime = if (match.status == MatchStatus.SCHEDULED) "Time TBC" else match.kickoff.atZone(displayZone).format(
         DateTimeFormatter.ofPattern(if (use24HourFormat) "HH:mm" else "h:mm a", Locale.ENGLISH)
     )
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -445,7 +464,7 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = if (match.status == MatchStatus.FINISHED) {
+                    text = if (match.status in setOf(MatchStatus.FINISHED, MatchStatus.IN_PLAY, MatchStatus.PAUSED, MatchStatus.AWARDED)) {
                         "${match.homeScore ?: "–"} - ${match.awayScore ?: "–"}"
                     } else "VS",
                     style = MaterialTheme.typography.labelLarge,
@@ -459,7 +478,7 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
                 )
             }
             Text(
-                text = if (match.status == MatchStatus.FINISHED) "Finished" else "Scheduled",
+                text = match.status.label,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -470,6 +489,7 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
 @Composable
 fun CompetitionFilterDialog(
     selectedCompetition: String,
+    competitions: List<String>,
     onCompetitionSelected: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -483,7 +503,7 @@ fun CompetitionFilterDialog(
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup()
         ) {
-            listOf("All competitions", "Premier League", "La Liga", "Champions League")
+            (listOf("All competitions") + competitions)
                 .forEach { competition ->
                     Row(
                         modifier = Modifier
@@ -518,7 +538,8 @@ fun SettingsScreen(
     onTimezoneChanged: (String) -> Unit,
     displayZone: ZoneId,
     selectedCompetition: String,
-    followedTeams: List<String>
+    followedTeams: List<String>,
+    schedule: FootballSchedule?
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -531,7 +552,13 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Schedule information", style = MaterialTheme.typography.titleMedium)
-                Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+                Text("Data provided by football-data.org", style = MaterialTheme.typography.bodyMedium)
+                Text("Current coverage: Premier League", style = MaterialTheme.typography.bodyMedium)
+                Text("Free-plan scores may be delayed. Kickoff times can change.", style = MaterialTheme.typography.bodyMedium)
+                schedule?.let {
+                    Text("Updated: " + it.fetchedAt.atZone(displayZone).format(
+                        DateTimeFormatter.ofPattern("d MMM yyyy HH:mm", Locale.ENGLISH)))
+                }
                 Text("All times: ${displayZone.id}", style = MaterialTheme.typography.bodyMedium)
                 Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
                 Text(

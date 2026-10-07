@@ -15,7 +15,11 @@ data class MatchFixture(
     val awayScore: Int? = null
 )
 
-enum class MatchStatus { SCHEDULED, FINISHED }
+enum class MatchStatus(val label: String) {
+    SCHEDULED("Time unconfirmed"), TIMED("Scheduled"), FINISHED("Finished"),
+    IN_PLAY("In progress"), PAUSED("Paused"), POSTPONED("Postponed"),
+    CANCELLED("Cancelled"), SUSPENDED("Suspended"), AWARDED("Awarded"), UNKNOWN("Status unavailable")
+}
 
 enum class SchedulePeriod(val label: String) {
     YESTERDAY("Yesterday"), TODAY("Today"), UPCOMING("Upcoming")
@@ -27,7 +31,8 @@ fun MatchFixture.matchesPeriod(period: SchedulePeriod, now: Instant, zone: ZoneI
     return when (period) {
         SchedulePeriod.YESTERDAY -> matchDate == today.minusDays(1)
         SchedulePeriod.TODAY -> matchDate == today
-        SchedulePeriod.UPCOMING -> status == MatchStatus.SCHEDULED && kickoff.isAfter(now)
+        SchedulePeriod.UPCOMING ->
+            (status == MatchStatus.SCHEDULED || status == MatchStatus.TIMED) && kickoff.isAfter(now)
     }
 }
 
