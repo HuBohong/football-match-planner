@@ -19,6 +19,7 @@ class FootballRepository(
     private val competitions: List<FootballCompetition> = listOf(
         FootballCompetition("PL", "Premier League"),
         FootballCompetition("SA", "Serie A"),
+        FootballCompetition("FL1", "Ligue 1"),
         FootballCompetition("CL", "UEFA Champions League")
     )
 ) {
