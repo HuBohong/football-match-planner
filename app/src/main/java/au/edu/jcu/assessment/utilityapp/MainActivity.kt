@@ -58,10 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
+import au.edu.jcu.assessment.utilityapp.data.MatchFixture
+import au.edu.jcu.assessment.utilityapp.data.groupFixturesByLocalDate
 import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -106,6 +109,10 @@ fun UtilityApp(
     // Kept above the screen so changing tabs does not discard the filter.
     var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
     var use24HourFormat by rememberSaveable { mutableStateOf(true) }
+    var selectedTimezone by rememberSaveable { mutableStateOf("Device") }
+    val displayZone = if (selectedTimezone == "Device") ZoneId.systemDefault() else ZoneId.of(selectedTimezone)
+    // Generate once per app composition, independently of the chosen display timezone.
+    val demoFixtures = remember { createDemoFixtures(LocalDate.now(), ZoneId.systemDefault()) }
 
     Scaffold(
         bottomBar = {
@@ -154,11 +161,15 @@ fun UtilityApp(
                         onCompetitionSelected = { selectedCompetition = it },
                         followedTeams = followedTeams,
                         onTeamsSelected = onTeamsSelected,
-                        use24HourFormat = use24HourFormat
+                        use24HourFormat = use24HourFormat,
+                        displayZone = displayZone,
+                        demoFixtures = demoFixtures
                     )
                     "Settings" -> SettingsScreen(
                         use24HourFormat = use24HourFormat,
-                        onTimeFormatChanged = { use24HourFormat = it }
+                        onTimeFormatChanged = { use24HourFormat = it },
+                        selectedTimezone = selectedTimezone,
+                        onTimezoneChanged = { selectedTimezone = it }
                     )
                 }
             }
@@ -166,20 +177,14 @@ fun UtilityApp(
     }
 }
 
-// Display-only sample data; these are not real fixtures or converted kickoff times.
-data class MatchFixture(
-    val competition: String,
-    val homeTeam: String,
-    val awayTeam: String,
-    val kickoffTime: String,
-    val date: LocalDate
-)
-
-// Relative dates keep the fictional fixtures useful whenever the demo is opened.
-private fun createDemoFixtures(today: LocalDate) = listOf(
-    MatchFixture("Premier League", "Arsenal", "Chelsea", "20:30", today),
-    MatchFixture("La Liga", "Real Madrid", "Atletico Madrid", "22:00", today),
-    MatchFixture("Champions League", "Barcelona", "Bayern Munich", "03:00", today.plusDays(1))
+// Fictional fixtures initially anchored to the device date/timezone, converted to instants.
+private fun createDemoFixtures(today: LocalDate, sourceZone: ZoneId) = listOf(
+    MatchFixture("Premier League", "Arsenal", "Chelsea",
+        today.atTime(LocalTime.of(20, 30)).atZone(sourceZone).toInstant()),
+    MatchFixture("La Liga", "Real Madrid", "Atletico Madrid",
+        today.atTime(LocalTime.of(22, 0)).atZone(sourceZone).toInstant()),
+    MatchFixture("Champions League", "Barcelona", "Bayern Munich",
+        today.plusDays(1).atTime(LocalTime.of(3, 0)).atZone(sourceZone).toInstant())
 )
 
 private val demoTeamsByLeague = linkedMapOf(
@@ -194,29 +199,29 @@ fun UtilityScreen(
     onCompetitionSelected: (String) -> Unit,
     followedTeams: List<String>,
     onTeamsSelected: (List<String>) -> Unit,
-    use24HourFormat: Boolean
+    use24HourFormat: Boolean,
+    displayZone: ZoneId,
+    demoFixtures: List<MatchFixture>
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
-    val today = LocalDate.now()
-    val demoFixtures = remember(today) { createDemoFixtures(today) }
+    val today = LocalDate.now(displayZone)
     // -1 selects the upcoming list; 0, 1, and 2 select an individual day.
     var selectedDayOffset by rememberSaveable { mutableIntStateOf(-1) }
     val selectedDate = today.plusDays(selectedDayOffset.toLong())
     val visibleFixtures = demoFixtures.filter { match ->
+        val localDate = match.kickoff.atZone(displayZone).toLocalDate()
         val matchesDate = if (selectedDayOffset == -1) {
-            !match.date.isBefore(today)
+            !localDate.isBefore(today)
         } else {
-            match.date == selectedDate
+            localDate == selectedDate
         }
         val matchesCompetition = selectedCompetition == "All competitions" ||
             match.competition == selectedCompetition
         val matchesTeam = match.homeTeam in followedTeams || match.awayTeam in followedTeams
         matchesDate && matchesCompetition && matchesTeam
     }
-    val fixturesByDate = visibleFixtures
-        .sortedWith(compareBy<MatchFixture> { it.date }.thenBy { it.kickoffTime })
-        .groupBy { it.date }
+    val fixturesByDate = groupFixturesByLocalDate(visibleFixtures, displayZone)
 
     if (followedTeams.isEmpty()) {
         ChooseTeamsPrompt(onChooseTeams = { showTeamsDialog = true })
@@ -242,6 +247,7 @@ fun UtilityScreen(
                         }
                     }
                     Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+                    Text("All times: ${displayZone.id}", style = MaterialTheme.typography.bodyMedium)
                     Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
                     Text(
                         text = "Following: ${followedTeams.joinToString()}",
@@ -279,7 +285,7 @@ fun UtilityScreen(
                     DateHeader(date, today)
                 }
                 items(matches) { match ->
-                    MatchCard(match, use24HourFormat)
+                    MatchCard(match, use24HourFormat, displayZone)
                 }
             }
         }
@@ -409,8 +415,8 @@ fun DateHeader(date: LocalDate, today: LocalDate) {
 }
 
 @Composable
-fun MatchCard(match: MatchFixture, use24HourFormat: Boolean) {
-    val displayedTime = LocalTime.parse(match.kickoffTime).format(
+fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId) {
+    val displayedTime = match.kickoff.atZone(displayZone).format(
         DateTimeFormatter.ofPattern(if (use24HourFormat) "HH:mm" else "h:mm a", Locale.ENGLISH)
     )
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -498,7 +504,9 @@ fun CompetitionFilterDialog(
 @Composable
 fun SettingsScreen(
     use24HourFormat: Boolean,
-    onTimeFormatChanged: (Boolean) -> Unit
+    onTimeFormatChanged: (Boolean) -> Unit,
+    selectedTimezone: String,
+    onTimezoneChanged: (String) -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
@@ -526,6 +534,34 @@ fun SettingsScreen(
                 )
             }
             Switch(checked = use24HourFormat, onCheckedChange = null)
+        }
+        Text("Timezone", style = MaterialTheme.typography.titleMedium)
+        Text("Kickoff times and date headings use the selected timezone.")
+        Column(modifier = Modifier.selectableGroup()) {
+            listOf(
+                "Device" to "Phone timezone (${ZoneId.systemDefault().id})",
+                "Asia/Shanghai" to "Beijing · Asia/Shanghai",
+                "Australia/Brisbane" to "Brisbane · Australia/Brisbane",
+                "Europe/London" to "London · Europe/London",
+                "UTC" to "UTC"
+            ).forEach { (zoneId, label) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 48.dp)
+                        .selectable(
+                            selected = selectedTimezone == zoneId,
+                            role = Role.RadioButton,
+                            onClick = { onTimezoneChanged(zoneId) }
+                        )
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RadioButton(selected = selectedTimezone == zoneId, onClick = null)
+                    Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
         }
     }
 }

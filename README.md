@@ -12,7 +12,7 @@ in the user's chosen timezone.
 - Today, Tomorrow, and +2 days chips filter fixtures by date; a message appears on empty days.
 - The default Upcoming view groups demo fixtures under date headings, ordered by date and sample time.
 - Date headings include the weekday and Today/Tomorrow labels and are marked as accessibility headings.
-- Demo dates are relative to the device's current date (two fixtures today, one tomorrow).
+- Demo fixtures are anchored once per app composition to the device's date/timezone (two today, one tomorrow), then stored as absolute kickoff instants.
 - A Filter button on the schedule opens a competition dialog (All competitions, Premier League, La Liga, Champions League).
 - Selecting an option immediately updates the schedule and closes the dialog; Close, Back, or outside dismissal leaves the selection unchanged.
 - The filter works together with the date filter and survives tab switches and configuration changes.
@@ -27,7 +27,9 @@ in the user's chosen timezone.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
 - Settings includes a 24-hour time switch; disabling it displays kickoff times in 12-hour format with AM/PM.
 - Time format is shared with the schedule and survives tab switches and configuration changes, but is not stored permanently.
-- Real API data and timezone conversion are not implemented yet. Competition and date filters are not stored permanently.
+- Settings offers Phone timezone, Beijing, Brisbane, London, and UTC; the schedule labels the chosen timezone.
+- Times, date filters, and date groups use the same timezone conversion. Ordering uses actual kickoff instants, including across daylight-saving changes.
+- Real API data is not implemented yet. Timezone, time format, competition and date filters are not stored permanently.
 
 ## Original starter documentation
 
