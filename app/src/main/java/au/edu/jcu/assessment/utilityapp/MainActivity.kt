@@ -372,6 +372,7 @@ fun MyTeamsDialog(
 ) {
     // Edit a draft so Cancel/Back cannot change the active schedule filter.
     var draftTeams by rememberSaveable { mutableStateOf(ArrayList(followedTeams)) }
+    var expandedCompetition by rememberSaveable { mutableStateOf<String?>(null) }
     val unavailableTeams = followedTeams - teamsByLeague.values.flatten().toSet()
     val selectableTeams = teamsByLeague + if (unavailableTeams.isEmpty()) emptyMap()
         else mapOf("Previously followed · not in current coverage" to unavailableTeams)
@@ -379,40 +380,51 @@ fun MyTeamsDialog(
         onDismissRequest = onDismiss,
         title = { Text("My teams") },
         confirmButton = {
-            TextButton(onClick = { onSave(draftTeams) }) { Text("Done") }
+            TextButton(onClick = { onSave(draftTeams.distinct()) }) { Text("Done") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Choose teams to follow. Selecting none returns to the team selection prompt.")
+                Text("Choose a competition, then select teams. A team followed in one list is followed in every list.")
                 selectableTeams.forEach { (league, teams) ->
-                    Text(
-                        text = league,
-                        modifier = Modifier.padding(top = 16.dp).semantics { heading() },
-                        style = MaterialTheme.typography.titleSmall
-                    )
-                    teams.forEach { team ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
-                                .toggleable(
-                                    value = team in draftTeams,
-                                    role = Role.Checkbox,
-                                    onValueChange = { checked ->
-                                        draftTeams = ArrayList(
-                                            if (checked) draftTeams + team else draftTeams - team
-                                        )
-                                    }
-                                )
-                                .padding(vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Checkbox(checked = team in draftTeams, onCheckedChange = null)
-                            Text(team, style = MaterialTheme.typography.bodyLarge)
+                    OutlinedButton(
+                        onClick = {
+                            expandedCompetition = if (expandedCompetition == league) null else league
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(league, modifier = Modifier.semantics { heading() },
+                                style = MaterialTheme.typography.titleSmall)
+                            Text("${teams.size} teams · ${teams.count { it in draftTeams }} followed",
+                                style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(if (expandedCompetition == league) "Hide" else "Choose")
+                    }
+                    if (expandedCompetition == league) {
+                        teams.forEach { team ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .toggleable(
+                                        value = team in draftTeams,
+                                        role = Role.Checkbox,
+                                        onValueChange = { checked ->
+                                            draftTeams = ArrayList(
+                                                if (checked) (draftTeams + team).distinct() else draftTeams - team
+                                            )
+                                        }
+                                    )
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Checkbox(checked = team in draftTeams, onCheckedChange = null)
+                                Text(team, style = MaterialTheme.typography.bodyLarge)
+                            }
                         }
                     }
                 }

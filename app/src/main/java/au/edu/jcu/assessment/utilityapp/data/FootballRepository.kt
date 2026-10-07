@@ -18,24 +18,22 @@ class FootballRepository(
     private val api: FootballApi,
     private val competitions: List<FootballCompetition> = listOf(
         FootballCompetition("PL", "Premier League"),
+        FootballCompetition("SA", "Serie A"),
         FootballCompetition("CL", "UEFA Champions League")
     )
 ) {
     suspend fun loadSchedule(): FootballSchedule {
         val teamsByLeague = linkedMapOf<String, List<String>>()
         val fixtures = mutableListOf<MatchFixture>()
-        val listedTeams = mutableSetOf<String>()
-        // Fetch sequentially: only four requests per load, without automatic polling.
+        // Fetch sequentially: two requests per competition per load, without automatic polling.
         competitions.forEach { competition ->
             val teams = api.getTeams(competition.code).teams.map { it.displayName }.distinct().sorted()
             val matches = api.getMatches(competition.code).matches.mapNotNull {
                 it.toFixture(competition.name)
             }
             fixtures += matches
-            // A club already listed under its domestic league needs only one checkbox.
-            val additionalTeams = teams.filter { it !in listedTeams }
-            if (additionalTeams.isNotEmpty()) teamsByLeague[competition.name] = additionalTeams
-            listedTeams += teams
+            // Keep each competition complete; selection is shared across its team rows.
+            teamsByLeague[competition.name] = teams
         }
         return FootballSchedule(fixtures, teamsByLeague, Instant.now(), competitions.map { it.name })
     }

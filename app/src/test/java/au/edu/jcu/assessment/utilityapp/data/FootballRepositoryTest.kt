@@ -50,7 +50,7 @@ class FootballRepositoryTest {
     }
 
     @Test
-    fun combinesCompetitionsAndListsSharedClubOnlyOnce() = runBlocking {
+    fun keepsCompleteCompetitionListsAndCombinesFollowedClubMatches() = runBlocking {
         val server = MockWebServer()
         server.start()
         try {
@@ -59,20 +59,31 @@ class FootballRepositoryTest {
                 {"utcDate":"2026-10-17T19:30:00Z","status":"TIMED",
                  "homeTeam":{"shortName":"Arsenal"},"awayTeam":{"shortName":"Chelsea"}}]}"""))
             server.enqueue(MockResponse().setBody("""{"teams":[
-                {"shortName":"Arsenal"},{"shortName":"Real Madrid"}]}"""))
+                {"shortName":"Inter"},{"shortName":"Juventus"}]}"""))
+            server.enqueue(MockResponse().setBody("""{"matches":[
+                {"utcDate":"2026-10-18T18:45:00Z","status":"TIMED",
+                 "homeTeam":{"shortName":"Inter"},"awayTeam":{"shortName":"Juventus"}}]}"""))
+            server.enqueue(MockResponse().setBody("""{"teams":[
+                {"shortName":"Arsenal"},{"shortName":"Inter"},{"shortName":"Real Madrid"}]}"""))
             server.enqueue(MockResponse().setBody("""{"matches":[
                 {"utcDate":"2026-10-20T19:00:00Z","status":"TIMED",
-                 "homeTeam":{"shortName":"Real Madrid"},"awayTeam":{"shortName":"Arsenal"}}]}"""))
+                 "homeTeam":{"shortName":"Inter"},"awayTeam":{"shortName":"Arsenal"}}]}"""))
             val result = FootballRepository(FootballApiFactory.create("test", server.url("/v4/").toString())).loadSchedule()
-            assertEquals(listOf("Premier League", "UEFA Champions League"), result.competitions)
+            assertEquals(listOf("Premier League", "Serie A", "UEFA Champions League"), result.competitions)
             assertEquals(listOf("Arsenal"), result.teamsByLeague["Premier League"])
-            assertEquals(listOf("Real Madrid"), result.teamsByLeague["UEFA Champions League"])
+            assertEquals(listOf("Inter", "Juventus"), result.teamsByLeague["Serie A"])
+            assertEquals(listOf("Arsenal", "Inter", "Real Madrid"), result.teamsByLeague["UEFA Champions League"])
             val arsenalMatches = result.fixtures.filter { it.homeTeam == "Arsenal" || it.awayTeam == "Arsenal" }
-            assertEquals(2, arsenalMatches.size)
-            assertEquals(result.competitions, arsenalMatches.map { it.competition })
+            assertEquals(listOf("Premier League", "UEFA Champions League"), arsenalMatches.map { it.competition })
+            val interMatches = result.fixtures.filter { it.homeTeam == "Inter" || it.awayTeam == "Inter" }
+            assertEquals(listOf("Serie A", "UEFA Champions League"), interMatches.map { it.competition })
+            // Following both opponents must still show their shared fixture just once.
+            val followed = setOf("Arsenal", "Inter")
+            assertEquals(3, result.fixtures.filter { it.homeTeam in followed || it.awayTeam in followed }.size)
             assertEquals(listOf("/v4/competitions/PL/teams", "/v4/competitions/PL/matches",
+                "/v4/competitions/SA/teams", "/v4/competitions/SA/matches",
                 "/v4/competitions/CL/teams", "/v4/competitions/CL/matches"),
-                List(4) { server.takeRequest().path })
+                List(6) { server.takeRequest().path })
         } finally {
             server.shutdown()
         }
