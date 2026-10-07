@@ -13,8 +13,12 @@ in the user's chosen timezone.
 - The default Upcoming view groups demo fixtures under date headings, ordered by date and sample time.
 - Date headings include the weekday and Today/Tomorrow labels and are marked as accessibility headings.
 - Demo dates are relative to the device's current date (two fixtures today, one tomorrow).
-- Bottom navigation and the Settings placeholder are retained from the starter.
-- Real API data, competition/team filtering, and timezone conversion are not implemented yet.
+- A Filter button on the schedule opens a competition dialog (All competitions, Premier League, La Liga, Champions League).
+- Selecting an option immediately updates the schedule and closes the dialog; Close, Back, or outside dismissal leaves the selection unchanged.
+- The filter works together with the date filter and survives tab switches and configuration changes.
+- Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
+- Settings is a placeholder for future timezone and time format preferences.
+- Real API data, team filtering, and timezone conversion are not implemented yet. Filters are not stored permanently.
 
 ## Original starter documentation
 

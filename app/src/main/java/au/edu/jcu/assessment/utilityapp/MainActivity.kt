@@ -6,6 +6,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +16,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,11 +24,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,6 +45,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -68,7 +77,9 @@ fun UtilityAppPreview() {
 
 @Composable
 fun UtilityApp() {
-    var selectedTab by remember { mutableStateOf("Utility") }
+    var selectedTab by rememberSaveable { mutableStateOf("Utility") }
+    // Kept above the screen so changing tabs does not discard the filter.
+    var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
 
     Scaffold(
         bottomBar = {
@@ -90,7 +101,10 @@ fun UtilityApp() {
     ) { innerPadding ->
         Box(modifier = Modifier.padding(innerPadding)) {
             when (selectedTab) {
-                "Utility" -> UtilityScreen()
+                "Utility" -> UtilityScreen(
+                    selectedCompetition = selectedCompetition,
+                    onCompetitionSelected = { selectedCompetition = it }
+                )
                 "Settings" -> SettingsScreen()
             }
         }
@@ -114,14 +128,25 @@ private fun createDemoFixtures(today: LocalDate) = listOf(
 )
 
 @Composable
-fun UtilityScreen() {
+fun UtilityScreen(
+    selectedCompetition: String,
+    onCompetitionSelected: (String) -> Unit
+) {
+    var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     val today = LocalDate.now()
     val demoFixtures = remember(today) { createDemoFixtures(today) }
     // -1 selects the upcoming list; 0, 1, and 2 select an individual day.
     var selectedDayOffset by rememberSaveable { mutableIntStateOf(-1) }
     val selectedDate = today.plusDays(selectedDayOffset.toLong())
-    val visibleFixtures = demoFixtures.filter {
-        if (selectedDayOffset == -1) !it.date.isBefore(today) else it.date == selectedDate
+    val visibleFixtures = demoFixtures.filter { match ->
+        val matchesDate = if (selectedDayOffset == -1) {
+            !match.date.isBefore(today)
+        } else {
+            match.date == selectedDate
+        }
+        val matchesCompetition = selectedCompetition == "All competitions" ||
+            match.competition == selectedCompetition
+        matchesDate && matchesCompetition
     }
     val fixturesByDate = visibleFixtures
         .sortedWith(compareBy<MatchFixture> { it.date }.thenBy { it.kickoffTime })
@@ -134,8 +159,22 @@ fun UtilityScreen() {
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        "Football Schedule",
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.headlineMedium
+                    )
+                    OutlinedButton(onClick = { showFilterDialog = true }) {
+                        Text("Filter")
+                    }
+                }
                 Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+                Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
             }
         }
         item {
@@ -154,11 +193,13 @@ fun UtilityScreen() {
             }
         }
         if (visibleFixtures.isEmpty()) {
-            item {
-                DateHeader(selectedDate, today)
+            if (selectedDayOffset != -1) {
+                item {
+                    DateHeader(selectedDate, today)
+                }
             }
             item {
-                Text("No demo matches on this date.", style = MaterialTheme.typography.bodyLarge)
+                Text("No demo matches match these filters.", style = MaterialTheme.typography.bodyLarge)
             }
         }
         fixturesByDate.forEach { (date, matches) ->
@@ -169,6 +210,16 @@ fun UtilityScreen() {
                 MatchCard(match)
             }
         }
+    }
+    if (showFilterDialog) {
+        CompetitionFilterDialog(
+            selectedCompetition = selectedCompetition,
+            onCompetitionSelected = {
+                onCompetitionSelected(it)
+                showFilterDialog = false
+            },
+            onDismiss = { showFilterDialog = false }
+        )
     }
 }
 
@@ -229,13 +280,55 @@ fun MatchCard(match: MatchFixture) {
 }
 
 @Composable
+fun CompetitionFilterDialog(
+    selectedCompetition: String,
+    onCompetitionSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Filter by competition") },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
+        },
+        text = {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup()
+        ) {
+            listOf("All competitions", "Premier League", "La Liga", "Champions League")
+                .forEach { competition ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .selectable(
+                                selected = selectedCompetition == competition,
+                                role = Role.RadioButton,
+                                onClick = { onCompetitionSelected(competition) }
+                            )
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        RadioButton(
+                            selected = selectedCompetition == competition,
+                            onClick = null
+                        )
+                        Text(competition, style = MaterialTheme.typography.bodyLarge)
+                    }
+                }
+        }
+        }
+    )
+}
+
+@Composable
 fun SettingsScreen() {
     Column(
-        Modifier
-            .fillMaxSize()
-            .padding(24.dp), Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Settings Screen", style = MaterialTheme.typography.headlineMedium)
-        Text("This is where you can add toggles or preferences.")
+        Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        Text("Timezone and time format preferences will be added here in a later step.")
     }
 }
