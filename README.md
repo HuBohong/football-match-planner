@@ -19,7 +19,9 @@ in the user's chosen timezone.
 - My teams opens a multi-select dialog with six sample teams grouped by domestic league.
 - Done applies the selected teams; Cancel, Back, or outside dismissal discards draft changes.
 - Fixtures match when either the home or away team is followed, combined with date and competition filters.
-- For this interim demo, no followed teams means all teams. First-use onboarding and permanent team storage are not implemented yet.
+- With no followed teams, the home screen shows a Choose my teams prompt instead of the fixture list.
+- Completing team selection opens the schedule; cancelling keeps the current view. Removing every followed team returns to the prompt.
+- Permanent team storage is not implemented yet; this step uses saveable in-memory state.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
 - Settings is a placeholder for future timezone and time format preferences.
 - Real API data, team filtering, and timezone conversion are not implemented yet. Filters are not stored permanently.

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
+import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
@@ -160,74 +161,76 @@ fun UtilityScreen(
         }
         val matchesCompetition = selectedCompetition == "All competitions" ||
             match.competition == selectedCompetition
-        val matchesTeam = followedTeams.isEmpty() ||
-            match.homeTeam in followedTeams || match.awayTeam in followedTeams
+        val matchesTeam = match.homeTeam in followedTeams || match.awayTeam in followedTeams
         matchesDate && matchesCompetition && matchesTeam
     }
     val fixturesByDate = visibleFixtures
         .sortedWith(compareBy<MatchFixture> { it.date }.thenBy { it.kickoffTime })
         .groupBy { it.date }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(onClick = { showTeamsDialog = true }) {
-                        Text("My teams (${followedTeams.size})")
+    if (followedTeams.isEmpty()) {
+        ChooseTeamsPrompt(onChooseTeams = { showTeamsDialog = true })
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(onClick = { showTeamsDialog = true }) {
+                            Text("My teams (${followedTeams.size})")
+                        }
+                        OutlinedButton(onClick = { showFilterDialog = true }) {
+                            Text("Filter")
+                        }
                     }
-                    OutlinedButton(onClick = { showFilterDialog = true }) {
-                        Text("Filter")
-                    }
-                }
-                Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
-                Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
-                Text(
-                    text = if (followedTeams.isEmpty()) "All demo teams" else
-                        "Following: ${followedTeams.joinToString()}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                listOf(-1 to "Upcoming", 0 to "Today", 1 to "Tomorrow", 2 to "+2 days")
-                    .forEach { (offset, label) ->
-                    FilterChip(
-                        selected = selectedDayOffset == offset,
-                        onClick = { selectedDayOffset = offset },
-                        label = { Text(label) }
+                    Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+                    Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Following: ${followedTeams.joinToString()}",
+                        style = MaterialTheme.typography.bodyMedium
                     )
                 }
             }
-        }
-        if (visibleFixtures.isEmpty()) {
-            if (selectedDayOffset != -1) {
-                item {
-                    DateHeader(selectedDate, today)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf(-1 to "Upcoming", 0 to "Today", 1 to "Tomorrow", 2 to "+2 days")
+                        .forEach { (offset, label) ->
+                        FilterChip(
+                            selected = selectedDayOffset == offset,
+                            onClick = { selectedDayOffset = offset },
+                            label = { Text(label) }
+                        )
+                    }
                 }
             }
-            item {
-                Text("No demo matches match these filters.", style = MaterialTheme.typography.bodyLarge)
+            if (visibleFixtures.isEmpty()) {
+                if (selectedDayOffset != -1) {
+                    item {
+                        DateHeader(selectedDate, today)
+                    }
+                }
+                item {
+                    Text("No demo matches match these filters.", style = MaterialTheme.typography.bodyLarge)
+                }
             }
-        }
-        fixturesByDate.forEach { (date, matches) ->
-            item(key = "date-$date") {
-                DateHeader(date, today)
-            }
-            items(matches) { match ->
-                MatchCard(match)
+            fixturesByDate.forEach { (date, matches) ->
+                item(key = "date-$date") {
+                    DateHeader(date, today)
+                }
+                items(matches) { match ->
+                    MatchCard(match)
+                }
             }
         }
     }
@@ -254,6 +257,39 @@ fun UtilityScreen(
 }
 
 @Composable
+fun ChooseTeamsPrompt(onChooseTeams: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
+        Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+        Box(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    "Follow your favourite teams",
+                    style = MaterialTheme.typography.headlineSmall,
+                    textAlign = TextAlign.Center
+                )
+                Text(
+                    "Choose teams to see their matches together in your schedule.",
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center
+                )
+                Button(onClick = onChooseTeams) { Text("Choose my teams") }
+            }
+        }
+    }
+}
+
+@Composable
 fun MyTeamsDialog(
     followedTeams: List<String>,
     onSave: (List<String>) -> Unit,
@@ -272,7 +308,7 @@ fun MyTeamsDialog(
         },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Text("Choose teams to follow. For now, selecting none shows all demo teams.")
+                Text("Choose teams to follow. Selecting none returns to the team selection prompt.")
                 demoTeamsByLeague.forEach { (league, teams) ->
                     Text(
                         text = league,
