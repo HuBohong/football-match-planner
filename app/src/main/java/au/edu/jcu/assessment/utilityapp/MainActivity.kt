@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
@@ -80,6 +82,7 @@ fun UtilityApp() {
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
     // Kept above the screen so changing tabs does not discard the filter.
     var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
+    var followedTeams by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
 
     Scaffold(
         bottomBar = {
@@ -103,7 +106,9 @@ fun UtilityApp() {
             when (selectedTab) {
                 "Utility" -> UtilityScreen(
                     selectedCompetition = selectedCompetition,
-                    onCompetitionSelected = { selectedCompetition = it }
+                    onCompetitionSelected = { selectedCompetition = it },
+                    followedTeams = followedTeams,
+                    onTeamsSelected = { followedTeams = ArrayList(it) }
                 )
                 "Settings" -> SettingsScreen()
             }
@@ -127,12 +132,21 @@ private fun createDemoFixtures(today: LocalDate) = listOf(
     MatchFixture("Champions League", "Barcelona", "Bayern Munich", "03:00", today.plusDays(1))
 )
 
+private val demoTeamsByLeague = linkedMapOf(
+    "Premier League" to listOf("Arsenal", "Chelsea"),
+    "La Liga" to listOf("Atletico Madrid", "Barcelona", "Real Madrid"),
+    "Bundesliga" to listOf("Bayern Munich")
+)
+
 @Composable
 fun UtilityScreen(
     selectedCompetition: String,
-    onCompetitionSelected: (String) -> Unit
+    onCompetitionSelected: (String) -> Unit,
+    followedTeams: List<String>,
+    onTeamsSelected: (List<String>) -> Unit
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
+    var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
     val today = LocalDate.now()
     val demoFixtures = remember(today) { createDemoFixtures(today) }
     // -1 selects the upcoming list; 0, 1, and 2 select an individual day.
@@ -146,7 +160,9 @@ fun UtilityScreen(
         }
         val matchesCompetition = selectedCompetition == "All competitions" ||
             match.competition == selectedCompetition
-        matchesDate && matchesCompetition
+        val matchesTeam = followedTeams.isEmpty() ||
+            match.homeTeam in followedTeams || match.awayTeam in followedTeams
+        matchesDate && matchesCompetition && matchesTeam
     }
     val fixturesByDate = visibleFixtures
         .sortedWith(compareBy<MatchFixture> { it.date }.thenBy { it.kickoffTime })
@@ -159,22 +175,26 @@ fun UtilityScreen(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    Text(
-                        "Football Schedule",
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.headlineMedium
-                    )
+                    OutlinedButton(onClick = { showTeamsDialog = true }) {
+                        Text("My teams (${followedTeams.size})")
+                    }
                     OutlinedButton(onClick = { showFilterDialog = true }) {
                         Text("Filter")
                     }
                 }
                 Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
                 Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = if (followedTeams.isEmpty()) "All demo teams" else
+                        "Following: ${followedTeams.joinToString()}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
             }
         }
         item {
@@ -221,6 +241,70 @@ fun UtilityScreen(
             onDismiss = { showFilterDialog = false }
         )
     }
+    if (showTeamsDialog) {
+        MyTeamsDialog(
+            followedTeams = followedTeams,
+            onSave = {
+                onTeamsSelected(it)
+                showTeamsDialog = false
+            },
+            onDismiss = { showTeamsDialog = false }
+        )
+    }
+}
+
+@Composable
+fun MyTeamsDialog(
+    followedTeams: List<String>,
+    onSave: (List<String>) -> Unit,
+    onDismiss: () -> Unit
+) {
+    // Edit a draft so Cancel/Back cannot change the active schedule filter.
+    var draftTeams by rememberSaveable { mutableStateOf(ArrayList(followedTeams)) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("My teams · Demo") },
+        confirmButton = {
+            TextButton(onClick = { onSave(draftTeams) }) { Text("Done") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                Text("Choose teams to follow. For now, selecting none shows all demo teams.")
+                demoTeamsByLeague.forEach { (league, teams) ->
+                    Text(
+                        text = league,
+                        modifier = Modifier.padding(top = 16.dp).semantics { heading() },
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    teams.forEach { team ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .toggleable(
+                                    value = team in draftTeams,
+                                    role = Role.Checkbox,
+                                    onValueChange = { checked ->
+                                        draftTeams = ArrayList(
+                                            if (checked) draftTeams + team else draftTeams - team
+                                        )
+                                    }
+                                )
+                                .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Checkbox(checked = team in draftTeams, onCheckedChange = null)
+                            Text(team, style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -288,7 +372,7 @@ fun CompetitionFilterDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Filter by competition") },
-        confirmButton = {
+            confirmButton = {
             TextButton(onClick = onDismiss) { Text("Close") }
         },
         text = {

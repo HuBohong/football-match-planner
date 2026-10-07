@@ -16,6 +16,10 @@ in the user's chosen timezone.
 - A Filter button on the schedule opens a competition dialog (All competitions, Premier League, La Liga, Champions League).
 - Selecting an option immediately updates the schedule and closes the dialog; Close, Back, or outside dismissal leaves the selection unchanged.
 - The filter works together with the date filter and survives tab switches and configuration changes.
+- My teams opens a multi-select dialog with six sample teams grouped by domestic league.
+- Done applies the selected teams; Cancel, Back, or outside dismissal discards draft changes.
+- Fixtures match when either the home or away team is followed, combined with date and competition filters.
+- For this interim demo, no followed teams means all teams. First-use onboarding and permanent team storage are not implemented yet.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
 - Settings is a placeholder for future timezone and time format preferences.
 - Real API data, team filtering, and timezone conversion are not implemented yet. Filters are not stored permanently.
