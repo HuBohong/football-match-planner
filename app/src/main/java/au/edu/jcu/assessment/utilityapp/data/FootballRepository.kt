@@ -30,6 +30,7 @@ class FootballRepository(
         FootballCompetition("SA", "Serie A"),
         FootballCompetition("FL1", "Ligue 1"),
         FootballCompetition("PD", "La Liga"),
+        FootballCompetition("BL1", "Bundesliga"),
         FootballCompetition("CL", "UEFA Champions League")
     ),
     private val cache: FootballResponseCache = FootballResponseCache(),

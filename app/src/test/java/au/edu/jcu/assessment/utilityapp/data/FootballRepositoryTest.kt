@@ -75,21 +75,31 @@ class FootballRepositoryTest {
                  "competition":{"name":"Primera Division"},
                  "homeTeam":{"shortName":"Real Madrid"},"awayTeam":{"shortName":"Barcelona"}}]}"""))
             server.enqueue(MockResponse().setBody("""{"teams":[
-                {"shortName":"Arsenal"},{"shortName":"Inter"},{"shortName":"PSG"},{"shortName":"Real Madrid"}]}"""))
+                {"shortName":"Bayern"},{"shortName":"Dortmund"}]}"""))
+            server.enqueue(MockResponse().setBody("""{"matches":[
+                {"utcDate":"2026-10-17T16:30:00Z","status":"TIMED",
+                 "homeTeam":{"shortName":"Bayern"},"awayTeam":{"shortName":"Dortmund"}}]}"""))
+            server.enqueue(MockResponse().setBody("""{"teams":[
+                {"shortName":"Arsenal"},{"shortName":"Inter"},{"shortName":"PSG"},{"shortName":"Real Madrid"},{"shortName":"Bayern"}]}"""))
             server.enqueue(MockResponse().setBody("""{"matches":[
                 {"utcDate":"2026-10-20T19:00:00Z","status":"TIMED",
                  "homeTeam":{"shortName":"Inter"},"awayTeam":{"shortName":"Arsenal"}},
                 {"utcDate":"2026-10-21T19:00:00Z","status":"TIMED",
-                 "homeTeam":{"shortName":"Real Madrid"},"awayTeam":{"shortName":"PSG"}}]}"""))
+                 "homeTeam":{"shortName":"Real Madrid"},"awayTeam":{"shortName":"PSG"}},
+                {"utcDate":"2026-10-21T19:00:00Z","status":"TIMED",
+                 "homeTeam":{"shortName":"Bayern"},"awayTeam":{"shortName":"Real Madrid"}}]}"""))
             val result = FootballRepository(FootballApiFactory.create("test", server.url("/v4/").toString())).loadSchedule()
-            assertEquals(listOf("Premier League", "Serie A", "Ligue 1", "La Liga", "UEFA Champions League"), result.competitions)
+            assertEquals(listOf("Premier League", "Serie A", "Ligue 1", "La Liga", "Bundesliga", "UEFA Champions League"), result.competitions)
             assertEquals(listOf("Arsenal"), result.teamsByLeague["Premier League"])
             assertEquals(listOf("Inter", "Juventus"), result.teamsByLeague["Serie A"])
             assertEquals(listOf("Monaco", "PSG"), result.teamsByLeague["Ligue 1"])
-            assertEquals(listOf("Arsenal", "Inter", "PSG", "Real Madrid"), result.teamsByLeague["UEFA Champions League"])
+            assertEquals(listOf("Arsenal", "Bayern", "Inter", "PSG", "Real Madrid"), result.teamsByLeague["UEFA Champions League"])
             assertEquals(listOf("Barcelona", "Real Madrid"), result.teamsByLeague["La Liga"])
+            assertEquals(listOf("Bayern", "Dortmund"), result.teamsByLeague["Bundesliga"])
+            val bayernMatches = result.fixtures.filter { it.homeTeam == "Bayern" || it.awayTeam == "Bayern" }
+            assertEquals(listOf("Bundesliga", "UEFA Champions League"), bayernMatches.map { it.competition })
             val madridMatches = result.fixtures.filter { it.homeTeam == "Real Madrid" || it.awayTeam == "Real Madrid" }
-            assertEquals(listOf("La Liga", "UEFA Champions League"), madridMatches.map { it.competition })
+            assertEquals(listOf("La Liga", "UEFA Champions League", "UEFA Champions League"), madridMatches.map { it.competition })
             val psgMatches = result.fixtures.filter { it.homeTeam == "PSG" || it.awayTeam == "PSG" }
             assertEquals(listOf("Ligue 1", "UEFA Champions League"), psgMatches.map { it.competition })
             val arsenalMatches = result.fixtures.filter { it.homeTeam == "Arsenal" || it.awayTeam == "Arsenal" }
@@ -103,8 +113,9 @@ class FootballRepositoryTest {
                 "/v4/competitions/SA/teams", "/v4/competitions/SA/matches",
                 "/v4/competitions/FL1/teams", "/v4/competitions/FL1/matches",
                 "/v4/competitions/PD/teams", "/v4/competitions/PD/matches",
+                "/v4/competitions/BL1/teams", "/v4/competitions/BL1/matches",
                 "/v4/competitions/CL/teams", "/v4/competitions/CL/matches"),
-                List(10) { server.takeRequest().path })
+                List(12) { server.takeRequest().path })
         } finally {
             server.shutdown()
         }

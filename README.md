@@ -6,20 +6,20 @@ in the user's chosen timezone.
 
 ## Current progress
 
-- Real current-season Premier League, Serie A, Ligue 1, La Liga and UEFA Champions League teams and fixtures from [football-data.org](https://www.football-data.org/).
-- Retrofit and Gson fetch and parse up to ten requests on an uncached load: teams and matches for each competition. No automatic polling.
+- Real current-season Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League teams and fixtures from [football-data.org](https://www.football-data.org/).
+- Retrofit and Gson fetch and parse twelve successful requests on an uncached load: teams and matches for each competition. No automatic polling.
 - FootballRepository maps API timestamps, match statuses and nullable scores to display models.
 - FootballViewModel exposes loading, success and retryable error states. The Activity injects its repository through a factory.
-- My teams selects current Premier League, Serie A, Ligue 1, La Liga and Champions League teams; each competition has its own complete, expandable team list. Following a team in one list updates the same team in the other lists, without duplicate saved selections. Following a club includes its matches across all loaded competitions. Team selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
+- My teams selects current Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League teams; each competition has its own complete, expandable team list. Following a team in one list updates the same team in the other lists, without duplicate saved selections. Following a club includes its matches across all loaded competitions. Team selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
 - Previously followed teams outside current coverage remain available to remove. Their matches are not yet fetched.
 - Yesterday, Today and Upcoming filter followed teams' matches. Upcoming includes future scheduled fixtures, grouped and ordered by kickoff.
 - Home offers a competition filter and equally sized period controls. Cards show opposing teams, kickoff, status and available scores.
-- Filter offers All competitions, Premier League, Serie A, Ligue 1, La Liga and UEFA Champions League.
+- Filter offers All competitions, Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League.
 - Settings controls 12/24-hour time and timezone (Device, Beijing, Brisbane, London, UTC), and shows source, coverage and update time.
 - All date filtering and grouping use the selected timezone. Settings survive configuration changes, but are not permanently stored.
 - Free-plan scores may be delayed; schedules can change. Teams are cached locally for 24 hours and matches for 3 hours. Fresh cached responses are reused after app restarts. Each successful endpoint is saved immediately, so retries preserve partial progress. Expired entries are fetched again on the next app load; there is no stale offline fallback. Settings displays the oldest match-response timestamp, including cached responses.
-- HTTP 429 waits for Retry-After (or 65 seconds when absent), then retries the failed endpoint once. The UI explains the wait. Repeated throttling exposes Retry while retaining saved responses.
-- Planned later coverage: Bundesliga and World Cup. These are not yet integrated.
+- HTTP 429 waits for Retry-After (or 65 seconds when absent), then retries the failed endpoint once. The UI explains the wait. A completely uncached six-competition load exceeds the free 10-call/minute quota and may need this wait; reopening with fresh responses avoids those requests. Repeated throttling exposes Retry while retaining saved responses.
+- Competition scope is the five major European domestic leagues and UEFA Champions League. World Cup is outside the current scope.
 
 ## API setup
 
@@ -31,7 +31,7 @@ FOOTBALL_API_TOKEN=your_token_here
 
 Sync Gradle and rebuild. `local.properties` is ignored by Git; do not commit API credentials.
 The build injects the token into BuildConfig; a compiled APK contains the credential, so this classroom setup is not suitable for protecting a production secret.
-An internet connection and an account with Premier League, Serie A, Ligue 1, La Liga and Champions League access are required.
+An internet connection and an account with Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League access are required.
 
 ## Validation
 
