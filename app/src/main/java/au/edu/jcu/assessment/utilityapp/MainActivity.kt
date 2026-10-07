@@ -179,7 +179,8 @@ fun UtilityApp(
                         use24HourFormat = use24HourFormat,
                         displayZone = displayZone,
                         fixtures = footballState.schedule.fixtures,
-                        teamsByLeague = footballState.schedule.teamsByLeague
+                        teamsByLeague = footballState.schedule.teamsByLeague,
+                        competitions = footballState.schedule.competitions
                     )
                     "Settings" -> SettingsScreen(
                         use24HourFormat = use24HourFormat,
@@ -204,7 +205,7 @@ fun ScheduleLoadScreen(state: FootballUiState, onRetry: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (state.isLoading) {
                 CircularProgressIndicator()
-                Text("Loading Premier League matches…")
+                Text("Loading football matches…")
             } else {
                 Text(state.errorMessage ?: "No schedule loaded.", textAlign = TextAlign.Center)
                 Button(onClick = onRetry) { Text("Retry") }
@@ -222,7 +223,8 @@ fun UtilityScreen(
     use24HourFormat: Boolean,
     displayZone: ZoneId,
     fixtures: List<MatchFixture>,
-    teamsByLeague: Map<String, List<String>>
+    teamsByLeague: Map<String, List<String>>,
+    competitions: List<String>
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
@@ -308,7 +310,7 @@ fun UtilityScreen(
     if (showFilterDialog) {
         CompetitionFilterDialog(
             selectedCompetition = selectedCompetition,
-            competitions = teamsByLeague.keys.toList(),
+            competitions = competitions,
             onCompetitionSelected = {
                 onCompetitionSelected(it)
                 showFilterDialog = false
@@ -553,7 +555,8 @@ fun SettingsScreen(
             ) {
                 Text("Schedule information", style = MaterialTheme.typography.titleMedium)
                 Text("Data provided by football-data.org", style = MaterialTheme.typography.bodyMedium)
-                Text("Current coverage: Premier League", style = MaterialTheme.typography.bodyMedium)
+                Text("Current coverage: " + (schedule?.competitions?.joinToString() ?: "Not loaded"),
+                    style = MaterialTheme.typography.bodyMedium)
                 Text("Free-plan scores may be delayed. Kickoff times can change.", style = MaterialTheme.typography.bodyMedium)
                 schedule?.let {
                     Text("Updated: " + it.fetchedAt.atZone(displayZone).format(

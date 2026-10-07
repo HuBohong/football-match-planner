@@ -42,7 +42,7 @@ class FootballViewModel(
         mutableUiState.value = FootballUiState()
         loadJob = viewModelScope.launch {
             try {
-                mutableUiState.value = FootballUiState(schedule = repository.loadPremierLeague(), isLoading = false)
+                mutableUiState.value = FootballUiState(schedule = repository.loadSchedule(), isLoading = false)
             } catch (error: HttpException) {
                 val message = when (error.code()) {
                     401, 403 -> "API access denied. Check your token and competition access."
