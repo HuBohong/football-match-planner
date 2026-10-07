@@ -6,6 +6,8 @@ in the user's chosen timezone.
 
 ## Current progress
 
+- Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded cards and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
+
 - Real current-season Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League teams and fixtures from [football-data.org](https://www.football-data.org/).
 - Retrofit and Gson fetch and parse twelve successful requests on an uncached load: teams and matches for each competition. No automatic polling.
 - FootballRepository maps API timestamps, match statuses and nullable scores to display models.

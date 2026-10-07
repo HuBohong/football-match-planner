@@ -4,6 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -23,6 +25,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -132,10 +137,10 @@ fun UtilityApp(
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
                 NavigationBarItem(
                     icon = { Icon(Icons.Default.Home, contentDescription = "Utility") },
-                    label = { Text("Utility") },
+                    label = { Text("Home") },
                     selected = selectedTab == "Utility",
                     onClick = { selectedTab = "Utility" }
                 )
@@ -260,10 +265,12 @@ fun UtilityScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        OutlinedButton(onClick = { showTeamsDialog = true }) {
+                        OutlinedButton(onClick = { showTeamsDialog = true },
+                            modifier = Modifier.heightIn(min = 48.dp)) {
                             Text("My teams (${followedTeams.size})")
                         }
-                        OutlinedButton(onClick = { showFilterDialog = true }) {
+                        OutlinedButton(onClick = { showFilterDialog = true },
+                            modifier = Modifier.heightIn(min = 48.dp)) {
                             Text("Filter")
                         }
                     }
@@ -276,7 +283,11 @@ fun UtilityScreen(
                 ) {
                     SchedulePeriod.entries.forEach { period ->
                         FilterChip(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                            ),
                             selected = selectedPeriod == period,
                             onClick = { selectedPeriod = period },
                             label = {
@@ -457,15 +468,19 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
     val displayedTime = if (match.status == MatchStatus.SCHEDULED) "Time TBC" else match.kickoff.atZone(displayZone).format(
         DateTimeFormatter.ofPattern(if (use24HourFormat) "HH:mm" else "h:mm a", Locale.ENGLISH)
     )
-    Card(modifier = Modifier.fillMaxWidth()) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = "$displayedTime · ${match.competition}",
-                style = MaterialTheme.typography.labelLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
             )
@@ -494,11 +509,17 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
                     textAlign = TextAlign.Center
                 )
             }
-            Text(
-                text = match.status.label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Surface(
+                shape = RoundedCornerShape(50),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            ) {
+                Text(
+                    text = match.status.label,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
         }
     }
 }
@@ -563,7 +584,11 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
-        Card(modifier = Modifier.fillMaxWidth()) {
+        Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
