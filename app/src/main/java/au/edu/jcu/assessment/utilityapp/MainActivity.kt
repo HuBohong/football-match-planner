@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -42,7 +41,6 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -59,10 +57,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
 import au.edu.jcu.assessment.utilityapp.data.MatchFixture
+import au.edu.jcu.assessment.utilityapp.data.MatchStatus
+import au.edu.jcu.assessment.utilityapp.data.SchedulePeriod
+import au.edu.jcu.assessment.utilityapp.data.matchesPeriod
 import au.edu.jcu.assessment.utilityapp.data.groupFixturesByLocalDate
 import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
+import java.time.Instant
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -169,7 +171,10 @@ fun UtilityApp(
                         use24HourFormat = use24HourFormat,
                         onTimeFormatChanged = { use24HourFormat = it },
                         selectedTimezone = selectedTimezone,
-                        onTimezoneChanged = { selectedTimezone = it }
+                        onTimezoneChanged = { selectedTimezone = it },
+                        displayZone = displayZone,
+                        selectedCompetition = selectedCompetition,
+                        followedTeams = followedTeams
                     )
                 }
             }
@@ -179,6 +184,9 @@ fun UtilityApp(
 
 // Fictional fixtures initially anchored to the device date/timezone, converted to instants.
 private fun createDemoFixtures(today: LocalDate, sourceZone: ZoneId) = listOf(
+    MatchFixture("Champions League", "Arsenal", "Bayern Munich",
+        today.minusDays(1).atTime(LocalTime.of(20, 0)).atZone(sourceZone).toInstant(),
+        status = MatchStatus.FINISHED, homeScore = 2, awayScore = 1),
     MatchFixture("Premier League", "Arsenal", "Chelsea",
         today.atTime(LocalTime.of(20, 30)).atZone(sourceZone).toInstant()),
     MatchFixture("La Liga", "Real Madrid", "Atletico Madrid",
@@ -205,17 +213,12 @@ fun UtilityScreen(
 ) {
     var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
-    val today = LocalDate.now(displayZone)
-    // -1 selects the upcoming list; 0, 1, and 2 select an individual day.
-    var selectedDayOffset by rememberSaveable { mutableIntStateOf(-1) }
-    val selectedDate = today.plusDays(selectedDayOffset.toLong())
+    val now = Instant.now()
+    val today = now.atZone(displayZone).toLocalDate()
+    var selectedPeriod by rememberSaveable { mutableStateOf(SchedulePeriod.UPCOMING) }
+    val selectedDate = if (selectedPeriod == SchedulePeriod.YESTERDAY) today.minusDays(1) else today
     val visibleFixtures = demoFixtures.filter { match ->
-        val localDate = match.kickoff.atZone(displayZone).toLocalDate()
-        val matchesDate = if (selectedDayOffset == -1) {
-            !localDate.isBefore(today)
-        } else {
-            localDate == selectedDate
-        }
+        val matchesDate = match.matchesPeriod(selectedPeriod, now, displayZone)
         val matchesCompetition = selectedCompetition == "All competitions" ||
             match.competition == selectedCompetition
         val matchesTeam = match.homeTeam in followedTeams || match.awayTeam in followedTeams
@@ -246,32 +249,31 @@ fun UtilityScreen(
                             Text("Filter")
                         }
                     }
-                    Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
-                    Text("All times: ${displayZone.id}", style = MaterialTheme.typography.bodyMedium)
-                    Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        text = "Following: ${followedTeams.joinToString()}",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
                 }
             }
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    listOf(-1 to "Upcoming", 0 to "Today", 1 to "Tomorrow", 2 to "+2 days")
-                        .forEach { (offset, label) ->
+                    SchedulePeriod.entries.forEach { period ->
                         FilterChip(
-                            selected = selectedDayOffset == offset,
-                            onClick = { selectedDayOffset = offset },
-                            label = { Text(label) }
+                            modifier = Modifier.weight(1f),
+                            selected = selectedPeriod == period,
+                            onClick = { selectedPeriod = period },
+                            label = {
+                                Text(
+                                    period.label,
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
                         )
                     }
                 }
             }
             if (visibleFixtures.isEmpty()) {
-                if (selectedDayOffset != -1) {
+                if (selectedPeriod != SchedulePeriod.UPCOMING) {
                     item {
                         DateHeader(selectedDate, today)
                     }
@@ -319,7 +321,6 @@ fun ChooseTeamsPrompt(onChooseTeams: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
-        Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentAlignment = Alignment.Center
@@ -402,6 +403,7 @@ fun MyTeamsDialog(
 @Composable
 fun DateHeader(date: LocalDate, today: LocalDate) {
     val relativeLabel = when (date) {
+        today.minusDays(1) -> " · Yesterday"
         today -> " · Today"
         today.plusDays(1) -> " · Tomorrow"
         else -> ""
@@ -443,7 +445,9 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
                     textAlign = TextAlign.Center
                 )
                 Text(
-                    text = "VS",
+                    text = if (match.status == MatchStatus.FINISHED) {
+                        "${match.homeScore ?: "–"} - ${match.awayScore ?: "–"}"
+                    } else "VS",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -454,6 +458,11 @@ fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId
                     textAlign = TextAlign.Center
                 )
             }
+            Text(
+                text = if (match.status == MatchStatus.FINISHED) "Finished" else "Scheduled",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -506,13 +515,31 @@ fun SettingsScreen(
     use24HourFormat: Boolean,
     onTimeFormatChanged: (Boolean) -> Unit,
     selectedTimezone: String,
-    onTimezoneChanged: (String) -> Unit
+    onTimezoneChanged: (String) -> Unit,
+    displayZone: ZoneId,
+    selectedCompetition: String,
+    followedTeams: List<String>
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text("Schedule information", style = MaterialTheme.typography.titleMedium)
+                Text("Demo fixtures · Sample times", style = MaterialTheme.typography.bodyMedium)
+                Text("All times: ${displayZone.id}", style = MaterialTheme.typography.bodyMedium)
+                Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    text = "Following: ${followedTeams.joinToString().ifEmpty { "No teams selected" }}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

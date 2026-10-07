@@ -11,6 +11,22 @@ class FixtureScheduleTest {
     private fun fixture(time: String) = MatchFixture("Demo", "Home", "Away", Instant.parse(time))
 
     @Test
+    fun periodFiltersUseLocalDatesAndUpcomingExcludesPastAndFinishedFixtures() {
+        val now = Instant.parse("2026-10-07T10:00:00Z")
+        val beijing = ZoneId.of("Asia/Shanghai")
+        val yesterday = fixture("2026-10-06T12:00:00Z").copy(status = MatchStatus.FINISHED)
+        val pastToday = fixture("2026-10-07T08:00:00Z")
+        val futureToday = fixture("2026-10-07T12:00:00Z")
+        val futureTomorrow = fixture("2026-10-07T18:30:00Z")
+        val finished = futureToday.copy(status = MatchStatus.FINISHED)
+        val fixtures = listOf(yesterday, pastToday, futureToday, futureTomorrow, finished)
+
+        assertEquals(listOf(yesterday), fixtures.filter { it.matchesPeriod(SchedulePeriod.YESTERDAY, now, beijing) })
+        assertEquals(listOf(pastToday, futureToday, finished), fixtures.filter { it.matchesPeriod(SchedulePeriod.TODAY, now, beijing) })
+        assertEquals(listOf(futureToday, futureTomorrow), fixtures.filter { it.matchesPeriod(SchedulePeriod.UPCOMING, now, beijing) })
+    }
+
+    @Test
     fun changingZoneMovesFixturesAcrossDateHeadingsWithoutChangingKickoffs() {
         val early = fixture("2026-10-07T15:30:00Z")
         val late = fixture("2026-10-07T18:30:00Z")

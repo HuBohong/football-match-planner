@@ -9,8 +9,27 @@ data class MatchFixture(
     val competition: String,
     val homeTeam: String,
     val awayTeam: String,
-    val kickoff: Instant
+    val kickoff: Instant,
+    val status: MatchStatus = MatchStatus.SCHEDULED,
+    val homeScore: Int? = null,
+    val awayScore: Int? = null
 )
+
+enum class MatchStatus { SCHEDULED, FINISHED }
+
+enum class SchedulePeriod(val label: String) {
+    YESTERDAY("Yesterday"), TODAY("Today"), UPCOMING("Upcoming")
+}
+
+fun MatchFixture.matchesPeriod(period: SchedulePeriod, now: Instant, zone: ZoneId): Boolean {
+    val today = now.atZone(zone).toLocalDate()
+    val matchDate = kickoff.atZone(zone).toLocalDate()
+    return when (period) {
+        SchedulePeriod.YESTERDAY -> matchDate == today.minusDays(1)
+        SchedulePeriod.TODAY -> matchDate == today
+        SchedulePeriod.UPCOMING -> status == MatchStatus.SCHEDULED && kickoff.isAfter(now)
+    }
+}
 
 fun groupFixturesByLocalDate(
     fixtures: List<MatchFixture>,

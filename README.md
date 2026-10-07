@@ -6,13 +6,15 @@ in the user's chosen timezone.
 
 ## Current progress
 
-- The Utility screen displays three fictional fixtures in a scrollable list of Material 3 cards.
+- The Utility screen displays four fictional fixtures in a scrollable list of Material 3 cards.
 - Each card shows the competition, teams, and a sample kickoff time.
 - Cards show time and competition above two equally sized team columns with a central VS label.
-- Today, Tomorrow, and +2 days chips filter fixtures by date; a message appears on empty days.
+- Yesterday, Today, and Upcoming chips filter fixtures; a message appears when no fixtures match.
+- Finished fixtures show a score and Finished label. Scheduled fixtures show VS and a Scheduled label.
+- Upcoming includes only scheduled fixtures whose actual kickoff is in the future; Today shows all fixtures on the selected timezone's current date.
 - The default Upcoming view groups demo fixtures under date headings, ordered by date and sample time.
 - Date headings include the weekday and Today/Tomorrow labels and are marked as accessibility headings.
-- Demo fixtures are anchored once per app composition to the device's date/timezone (two today, one tomorrow), then stored as absolute kickoff instants.
+- Demo fixtures are anchored once per app composition to the device's date/timezone (one finished yesterday, two scheduled today, one tomorrow), then stored as absolute kickoff instants.
 - A Filter button on the schedule opens a competition dialog (All competitions, Premier League, La Liga, Champions League).
 - Selecting an option immediately updates the schedule and closes the dialog; Close, Back, or outside dismissal leaves the selection unchanged.
 - The filter works together with the date filter and survives tab switches and configuration changes.
@@ -27,7 +29,8 @@ in the user's chosen timezone.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
 - Settings includes a 24-hour time switch; disabling it displays kickoff times in 12-hour format with AM/PM.
 - Time format is shared with the schedule and survives tab switches and configuration changes, but is not stored permanently.
-- Settings offers Phone timezone, Beijing, Brisbane, London, and UTC; the schedule labels the chosen timezone.
+- Settings offers Phone timezone, Beijing, Brisbane, London, and UTC.
+- Settings shows the demo-data notice, active timezone, competition filter, and followed teams in a Schedule information card; the home screen focuses on controls and fixtures.
 - Times, date filters, and date groups use the same timezone conversion. Ordering uses actual kickoff instants, including across daylight-saving changes.
 - Real API data is not implemented yet. Timezone, time format, competition and date filters are not stored permanently.
 
