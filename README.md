@@ -21,10 +21,12 @@ in the user's chosen timezone.
 - Fixtures match when either the home or away team is followed, combined with date and competition filters.
 - With no followed teams, the home screen shows a Choose my teams prompt instead of the fixture list.
 - Completing team selection opens the schedule; cancelling keeps the current view. Removing every followed team returns to the prompt.
-- Permanent team storage is not implemented yet; this step uses saveable in-memory state.
+- Followed teams are stored locally with Preferences DataStore and restored when the app restarts.
+- TeamPreferencesRepository handles disk reads/writes; TeamPreferencesViewModel exposes loading, saving, and error state to Compose.
+- The Activity provides the repository through a ViewModel factory (manual dependency injection); loading does not briefly show the first-use prompt.
 - Radio options support tapping the whole row, with a minimum 48dp height and grouped selection semantics.
 - Settings is a placeholder for future timezone and time format preferences.
-- Real API data, team filtering, and timezone conversion are not implemented yet. Filters are not stored permanently.
+- Real API data and timezone conversion are not implemented yet. Competition and date filters are not stored permanently.
 
 ## Original starter documentation
 

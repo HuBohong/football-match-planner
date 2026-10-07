@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
@@ -53,6 +54,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
+import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -62,9 +67,18 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val factory = TeamPreferencesViewModel.Factory(TeamPreferencesRepository.from(this))
         setContent {
             MobileTech_UtilityAppTheme {
-                UtilityApp()
+                val teamViewModel: TeamPreferencesViewModel = viewModel(factory = factory)
+                val preferences by teamViewModel.uiState.collectAsStateWithLifecycle()
+                UtilityApp(
+                    followedTeams = preferences.followedTeams,
+                    onTeamsSelected = teamViewModel::saveTeams,
+                    isSaving = preferences.isSaving,
+                    errorMessage = preferences.errorMessage,
+                    onRetry = teamViewModel::loadTeams
+                )
             }
         }
     }
@@ -79,11 +93,16 @@ fun UtilityAppPreview() {
 }
 
 @Composable
-fun UtilityApp() {
+fun UtilityApp(
+    followedTeams: List<String>? = emptyList(),
+    onTeamsSelected: (List<String>) -> Unit = {},
+    isSaving: Boolean = false,
+    errorMessage: String? = null,
+    onRetry: () -> Unit = {}
+) {
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
     // Kept above the screen so changing tabs does not discard the filter.
     var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
-    var followedTeams by rememberSaveable { mutableStateOf(arrayListOf<String>()) }
 
     Scaffold(
         bottomBar = {
@@ -103,15 +122,38 @@ fun UtilityApp() {
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding)) {
-            when (selectedTab) {
-                "Utility" -> UtilityScreen(
-                    selectedCompetition = selectedCompetition,
-                    onCompetitionSelected = { selectedCompetition = it },
-                    followedTeams = followedTeams,
-                    onTeamsSelected = { followedTeams = ArrayList(it) }
+        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            if (errorMessage != null) {
+                Text(
+                    errorMessage,
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.error
                 )
-                "Settings" -> SettingsScreen()
+            }
+            if (followedTeams == null || isSaving) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        if (errorMessage == null) {
+                            CircularProgressIndicator()
+                            Text(if (isSaving) "Saving teams…" else "Loading saved teams…")
+                        } else {
+                            Button(onClick = onRetry) { Text("Retry") }
+                        }
+                    }
+                }
+            } else {
+                when (selectedTab) {
+                    "Utility" -> UtilityScreen(
+                        selectedCompetition = selectedCompetition,
+                        onCompetitionSelected = { selectedCompetition = it },
+                        followedTeams = followedTeams,
+                        onTeamsSelected = onTeamsSelected
+                    )
+                    "Settings" -> SettingsScreen()
+                }
             }
         }
     }
