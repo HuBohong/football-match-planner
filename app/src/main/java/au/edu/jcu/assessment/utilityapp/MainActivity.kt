@@ -54,6 +54,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import java.io.File
+import au.edu.jcu.assessment.utilityapp.data.FootballResponseCache
 import au.edu.jcu.assessment.utilityapp.data.FootballRepository
 import au.edu.jcu.assessment.utilityapp.data.FootballSchedule
 import au.edu.jcu.assessment.utilityapp.data.remote.FootballApiFactory
@@ -79,7 +81,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         val factory = TeamPreferencesViewModel.Factory(TeamPreferencesRepository.from(this))
         val footballFactory = FootballViewModel.Factory(
-            FootballRepository(FootballApiFactory.create(BuildConfig.FOOTBALL_API_TOKEN)),
+            FootballRepository(FootballApiFactory.create(BuildConfig.FOOTBALL_API_TOKEN),
+                cache = FootballResponseCache(File(filesDir, "football-cache"))),
             BuildConfig.FOOTBALL_API_TOKEN.isNotBlank()
         )
         setContent {
@@ -205,7 +208,7 @@ fun ScheduleLoadScreen(state: FootballUiState, onRetry: () -> Unit) {
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (state.isLoading) {
                 CircularProgressIndicator()
-                Text("Loading football matches…")
+                Text(state.loadingMessage, textAlign = TextAlign.Center)
             } else {
                 Text(state.errorMessage ?: "No schedule loaded.", textAlign = TextAlign.Center)
                 Button(onClick = onRetry) { Text("Retry") }
@@ -570,6 +573,8 @@ fun SettingsScreen(
                 Text("Current coverage: " + (schedule?.competitions?.joinToString() ?: "Not loaded"),
                     style = MaterialTheme.typography.bodyMedium)
                 Text("Free-plan scores may be delayed. Kickoff times can change.", style = MaterialTheme.typography.bodyMedium)
+                Text("Schedules are cached for up to 3 hours; updates are checked when you reopen the app.",
+                    style = MaterialTheme.typography.bodyMedium)
                 schedule?.let {
                     Text("Updated: " + it.fetchedAt.atZone(displayZone).format(
                         DateTimeFormatter.ofPattern("d MMM yyyy HH:mm", Locale.ENGLISH)))

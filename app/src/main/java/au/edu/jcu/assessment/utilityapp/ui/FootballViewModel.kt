@@ -16,7 +16,8 @@ import retrofit2.HttpException
 data class FootballUiState(
     val schedule: FootballSchedule? = null,
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val loadingMessage: String = "Loading football matches…"
 )
 
 class FootballViewModel(
@@ -42,11 +43,14 @@ class FootballViewModel(
         mutableUiState.value = FootballUiState()
         loadJob = viewModelScope.launch {
             try {
-                mutableUiState.value = FootballUiState(schedule = repository.loadSchedule(), isLoading = false)
+                mutableUiState.value = FootballUiState(schedule = repository.loadSchedule { seconds ->
+                    mutableUiState.value = FootballUiState(loadingMessage =
+                        "API limit reached. Waiting about $seconds seconds, then continuing automatically…")
+                }, isLoading = false)
             } catch (error: HttpException) {
                 val message = when (error.code()) {
                     401, 403 -> "API access denied. Check your token and competition access."
-                    429 -> "API request limit reached. Wait a minute, then retry."
+                    429 -> "API is still limiting requests. Try again later; already loaded data has been saved."
                     else -> "Football service unavailable. Please retry later."
                 }
                 mutableUiState.value = FootballUiState(isLoading = false, errorMessage = message)
