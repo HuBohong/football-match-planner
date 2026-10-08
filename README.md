@@ -6,6 +6,9 @@ in the user's chosen timezone.
 
 ## Current progress
 
+- My teams opens from a round glass icon button. A native Compose menu-to-X morph follows the [Morphicons](https://github.com/guillermolg00/morphicons) smooth spring parameters (stiffness 170, damping 26) and 2px round strokes; it reverses on dismissal. This is a native rendition, not use of the JavaScript package.
+- The button expands left/down into a floating competition overview, anchored at the same top-right corner. Only the card's backdrop is blurred from a recorded page graphics layer; no full-screen dimming or page movement occurs. Close, outside tap and Android Back collapse it. Edit teams temporarily retains the existing selection dialog while the inline team-selection view is developed separately.
+
 - A vertical green background keeps the lower two thirds deep green, with a transition to the sampled lighter green in the upper third; navigation uses light icons and labels, while text panels retain readable surfaces.
 - Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded panels and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
 

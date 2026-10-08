@@ -2,12 +2,14 @@ package au.edu.jcu.assessment.utilityapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.SystemBarStyle
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.SideEffect
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +19,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -42,6 +45,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItemDefaults
@@ -61,10 +65,19 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.rememberGraphicsLayer
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.style.TextOverflow
 import au.edu.jcu.assessment.utilityapp.ui.FootballBadge
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +94,8 @@ import au.edu.jcu.assessment.utilityapp.data.FootballRepository
 import au.edu.jcu.assessment.utilityapp.data.FootballSchedule
 import au.edu.jcu.assessment.utilityapp.data.remote.FootballApiFactory
 import au.edu.jcu.assessment.utilityapp.ui.GlassPanel
+import au.edu.jcu.assessment.utilityapp.ui.TeamsMenuPanel
+import au.edu.jcu.assessment.utilityapp.ui.MorphingTeamsIcon
 import au.edu.jcu.assessment.utilityapp.ui.GradientBackground
 import au.edu.jcu.assessment.utilityapp.ui.LocalGradientBackground
 import au.edu.jcu.assessment.utilityapp.ui.FootballUiState
@@ -301,6 +316,10 @@ fun UtilityScreen(
     competitions: List<String>
 ) {
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
+    var showTeamsMenu by rememberSaveable { mutableStateOf(false) }
+    val pageLayer = rememberGraphicsLayer()
+    var pageOrigin by remember { mutableStateOf(Offset.Zero) }
+    BackHandler(enabled = showTeamsMenu) { showTeamsMenu = false }
     val now = Instant.now()
     val today = now.atZone(displayZone).toLocalDate()
     var selectedPeriod by rememberSaveable { mutableStateOf(SchedulePeriod.UPCOMING) }
@@ -314,6 +333,13 @@ fun UtilityScreen(
     }
     val fixturesByDate = groupFixturesByLocalDate(visibleFixtures, displayZone)
 
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+      val availableHeight = maxHeight
+      Box(Modifier.fillMaxSize().onGloballyPositioned { pageOrigin = it.positionInRoot() }
+          .drawWithContent {
+              pageLayer.record { this@drawWithContent.drawContent() }
+              drawLayer(pageLayer)
+          }) {
     if (followedTeams.isEmpty()) {
         ChooseTeamsPrompt(onChooseTeams = { showTeamsDialog = true })
     } else {
@@ -333,19 +359,8 @@ fun UtilityScreen(
                     fontSize = 20.sp,
                     color = Color.White
                 )
-                GlassPanel(
-                    shape = RoundedCornerShape(50),
-                    tint = Color(0xFF4B8148).copy(alpha = 0.24f)
-                ) {
-                    TextButton(
-                        onClick = { showTeamsDialog = true },
-                        modifier = Modifier.heightIn(min = 48.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
-                    ) {
-                        Text("My teams (${followedTeams.size})")
-                    }
-                }
+                // Reserve the collapsed button's space; the expanding card is an overlay.
+                Box(Modifier.size(48.dp))
             }
             // One continuous panel: only the fixtures scroll beneath the period controls.
             GlassPanel(
@@ -408,6 +423,27 @@ fun UtilityScreen(
                 }
             }
         }
+    }
+      }
+      if (showTeamsMenu) {
+          Box(Modifier.matchParentSize().pointerInput(Unit) {
+              detectTapGestures { showTeamsMenu = false }
+          })
+      }
+      if (followedTeams.isNotEmpty()) {
+          TeamsMenuPanel(
+              expanded = showTeamsMenu,
+              onToggle = { showTeamsMenu = !showTeamsMenu },
+              onEditTeams = { showTeamsMenu = false; showTeamsDialog = true },
+              teamsByLeague = teamsByLeague,
+              followedTeams = followedTeams,
+              fixtures = fixtures,
+              backdrop = pageLayer,
+              backdropOrigin = pageOrigin,
+              availableHeight = availableHeight,
+              modifier = Modifier.align(Alignment.TopEnd).padding(top = 24.dp, end = 24.dp)
+          )
+      }
     }
     if (showTeamsDialog) {
         MyTeamsDialog(
