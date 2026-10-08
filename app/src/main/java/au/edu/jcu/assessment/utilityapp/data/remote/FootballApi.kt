@@ -34,7 +34,7 @@ object FootballApiFactory {
 }
 
 data class TeamsResponse(val teams: List<TeamDto>)
-data class TeamDto(val id: Int?, val name: String?, val shortName: String?) {
+data class TeamDto(val id: Int?, val name: String?, val shortName: String?, val crest: String? = null) {
     val displayName: String get() = shortName?.takeIf { it.isNotBlank() }
         ?: name?.takeIf { it.isNotBlank() } ?: "Team to be confirmed"
 }
@@ -48,6 +48,6 @@ data class MatchDto(
     val awayTeam: TeamDto?,
     val score: ScoreDto?
 )
-data class CompetitionDto(val name: String?)
+data class CompetitionDto(val name: String?, val emblem: String? = null)
 data class ScoreDto(val fullTime: GoalsDto?)
 data class GoalsDto(val home: Int?, val away: Int?)

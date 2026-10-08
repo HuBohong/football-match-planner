@@ -20,8 +20,8 @@ class FootballRepositoryTest {
                 {"id":61,"name":"Chelsea FC","shortName":"Chelsea"}]}"""))
             server.enqueue(MockResponse().setBody("""{"matches":[
                 {"utcDate":"2026-10-17T19:30:00Z","status":"TIMED",
-                 "competition":{"name":"Premier League"},
-                 "homeTeam":{"shortName":"Arsenal"},"awayTeam":{"shortName":"Chelsea"},
+                 "competition":{"name":"Premier League","emblem":"https://crests.example/PL.png"},
+                 "homeTeam":{"shortName":"Arsenal","crest":"https://crests.example/57.png"},"awayTeam":{"shortName":"Chelsea","crest":"https://crests.example/61.svg"},
                  "score":{"fullTime":{"home":null,"away":null}}},
                 {"utcDate":"2026-10-06T19:30:00Z","status":"FINISHED",
                  "homeTeam":{"shortName":"Chelsea"},"awayTeam":{"shortName":"Arsenal"},
@@ -35,6 +35,9 @@ class FootballRepositoryTest {
             assertEquals(3, result.fixtures.size)
             assertEquals(Instant.parse("2026-10-17T19:30:00Z"), result.fixtures[0].kickoff)
             assertEquals(MatchStatus.TIMED, result.fixtures[0].status)
+            assertEquals("https://crests.example/57.png", result.fixtures[0].homeCrest)
+            assertEquals("https://crests.example/61.svg", result.fixtures[0].awayCrest)
+            assertEquals("https://crests.example/PL.png", result.fixtures[0].competitionEmblem)
             assertEquals(null, result.fixtures[0].homeScore)
             assertEquals(MatchStatus.FINISHED, result.fixtures[1].status)
             assertEquals(2, result.fixtures[1].homeScore)

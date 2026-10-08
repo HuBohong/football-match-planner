@@ -44,7 +44,8 @@ class FootballRepository(
         competitions.forEach { competition ->
             val teamsResponse = cachedRequest("${competition.code}-teams", TeamsResponse::class.java,
                 Duration.ofHours(24), onQuotaWait) { api.getTeams(competition.code) }
-            val matchesResponse = cachedRequest("${competition.code}-matches", MatchesResponse::class.java,
+            // Version 2 retains crest/emblem URLs omitted by older cached DTOs.
+            val matchesResponse = cachedRequest("${competition.code}-matches-v2", MatchesResponse::class.java,
                 Duration.ofHours(3), onQuotaWait) { api.getMatches(competition.code) }
             val teams = teamsResponse.value.teams.map { it.displayName }.distinct().sorted()
             val matches = matchesResponse.value.matches.mapNotNull {
@@ -108,6 +109,9 @@ fun MatchDto.toFixture(competitionName: String = "Premier League"): MatchFixture
         kickoff = kickoff,
         status = matchStatus,
         homeScore = score?.fullTime?.home,
-        awayScore = score?.fullTime?.away
+        awayScore = score?.fullTime?.away,
+        homeCrest = homeTeam?.crest,
+        awayCrest = awayTeam?.crest,
+        competitionEmblem = competition?.emblem
     )
 }

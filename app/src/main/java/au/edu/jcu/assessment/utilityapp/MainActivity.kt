@@ -4,6 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.SystemBarStyle
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.SideEffect
+import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.rememberScrollState
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,7 +32,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Card
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -35,28 +41,38 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.style.TextOverflow
+import au.edu.jcu.assessment.utilityapp.ui.FootballBadge
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.io.File
@@ -64,6 +80,9 @@ import au.edu.jcu.assessment.utilityapp.data.FootballResponseCache
 import au.edu.jcu.assessment.utilityapp.data.FootballRepository
 import au.edu.jcu.assessment.utilityapp.data.FootballSchedule
 import au.edu.jcu.assessment.utilityapp.data.remote.FootballApiFactory
+import au.edu.jcu.assessment.utilityapp.ui.GlassPanel
+import au.edu.jcu.assessment.utilityapp.ui.GradientBackground
+import au.edu.jcu.assessment.utilityapp.ui.LocalGradientBackground
 import au.edu.jcu.assessment.utilityapp.ui.FootballUiState
 import au.edu.jcu.assessment.utilityapp.ui.FootballViewModel
 import au.edu.jcu.assessment.utilityapp.data.TeamPreferencesRepository
@@ -73,6 +92,7 @@ import au.edu.jcu.assessment.utilityapp.data.SchedulePeriod
 import au.edu.jcu.assessment.utilityapp.data.matchesPeriod
 import au.edu.jcu.assessment.utilityapp.data.groupFixturesByLocalDate
 import au.edu.jcu.assessment.utilityapp.ui.TeamPreferencesViewModel
+import au.edu.jcu.assessment.utilityapp.ui.theme.ThemeMode
 import au.edu.jcu.assessment.utilityapp.ui.theme.MobileTech_UtilityAppTheme
 import java.time.LocalDate
 import java.time.Instant
@@ -91,7 +111,19 @@ class MainActivity : ComponentActivity() {
             BuildConfig.FOOTBALL_API_TOKEN.isNotBlank()
         )
         setContent {
-            MobileTech_UtilityAppTheme {
+            var themeMode by rememberSaveable { mutableStateOf(ThemeMode.SYSTEM) }
+            val darkTheme = when (themeMode) {
+                ThemeMode.SYSTEM -> isSystemInDarkTheme()
+                ThemeMode.LIGHT -> false
+                ThemeMode.DARK -> true
+            }
+            // Status/navigation icons must remain readable when overriding the system theme.
+            SideEffect {
+                val barStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                enableEdgeToEdge(statusBarStyle = barStyle,
+                    navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT))
+            }
+            MobileTech_UtilityAppTheme(darkTheme = darkTheme) {
                 val teamViewModel: TeamPreferencesViewModel = viewModel(factory = factory)
                 val preferences by teamViewModel.uiState.collectAsStateWithLifecycle()
                 val footballViewModel: FootballViewModel = viewModel(factory = footballFactory)
@@ -103,7 +135,9 @@ class MainActivity : ComponentActivity() {
                     errorMessage = preferences.errorMessage,
                     onRetry = teamViewModel::loadTeams,
                     footballState = footballState,
-                    onRetrySchedule = footballViewModel::loadSchedule
+                    onRetrySchedule = footballViewModel::loadSchedule,
+                    themeMode = themeMode,
+                    onThemeModeChanged = { themeMode = it }
                 )
             }
         }
@@ -126,7 +160,9 @@ fun UtilityApp(
     errorMessage: String? = null,
     onRetry: () -> Unit = {},
     footballState: FootballUiState = FootballUiState(isLoading = false),
-    onRetrySchedule: () -> Unit = {}
+    onRetrySchedule: () -> Unit = {},
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChanged: (ThemeMode) -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
     // Kept above the screen so changing tabs does not discard the filter.
@@ -135,71 +171,98 @@ fun UtilityApp(
     var selectedTimezone by rememberSaveable { mutableStateOf("Device") }
     val displayZone = if (selectedTimezone == "Device") ZoneId.systemDefault() else ZoneId.of(selectedTimezone)
 
-    Scaffold(
-        bottomBar = {
-            NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Utility") },
-                    label = { Text("Home") },
-                    selected = selectedTab == "Utility",
-                    onClick = { selectedTab = "Utility" }
-                )
-                NavigationBarItem(
-                    icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
-                    label = { Text("Settings") },
-                    selected = selectedTab == "Settings",
-                    onClick = { selectedTab = "Settings" }
-                )
-            }
-        }
-    ) { innerPadding ->
-        Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
-            if (errorMessage != null) {
-                Text(
-                    errorMessage,
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
-            if (followedTeams == null || isSaving) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        if (errorMessage == null) {
-                            CircularProgressIndicator()
-                            Text(if (isSaving) "Saving teams…" else "Loading saved teams…")
-                        } else {
-                            Button(onClick = onRetry) { Text("Retry") }
-                        }
+    // Sampled from the supplied Apple Sports screenshot; dark green fills the lower two thirds.
+    val gradientStops = arrayOf(
+        0f to Color(0xFF396832),
+        0.34f to Color(0xFF182A15),
+        1f to Color(0xFF182A15)
+    )
+    var backgroundHeight by remember { mutableStateOf(1f) }
+    val navigationColors = NavigationBarItemDefaults.colors(
+        selectedIconColor = Color.White,
+        selectedTextColor = Color.White,
+        indicatorColor = Color(0xFF4B8148),
+        unselectedIconColor = Color.White.copy(alpha = 0.9f),
+        unselectedTextColor = Color.White.copy(alpha = 0.9f)
+    )
+    CompositionLocalProvider(LocalGradientBackground provides GradientBackground(gradientStops, backgroundHeight)) {
+        Box(modifier = Modifier.fillMaxSize().onSizeChanged { backgroundHeight = it.height.toFloat() }
+            .background(Brush.verticalGradient(*gradientStops))) {
+            Scaffold(
+                containerColor = Color.Transparent,
+                contentColor = MaterialTheme.colorScheme.onBackground,
+                bottomBar = {
+                    NavigationBar(containerColor = Color.Transparent, tonalElevation = 0.dp) {
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Home, contentDescription = "Utility") },
+                            label = { Text("Home") },
+                            colors = navigationColors,
+                            selected = selectedTab == "Utility",
+                            onClick = { selectedTab = "Utility" }
+                        )
+                        NavigationBarItem(
+                            icon = { Icon(Icons.Default.Settings, contentDescription = "Settings") },
+                            label = { Text("Settings") },
+                            colors = navigationColors,
+                            selected = selectedTab == "Settings",
+                            onClick = { selectedTab = "Settings" }
+                        )
                     }
                 }
-            } else {
-                when (selectedTab) {
-                    "Utility" -> if (footballState.schedule == null) {
-                        ScheduleLoadScreen(footballState, onRetrySchedule)
-                    } else UtilityScreen(
-                        selectedCompetition = selectedCompetition,
-                        onCompetitionSelected = { selectedCompetition = it },
-                        followedTeams = followedTeams,
-                        onTeamsSelected = onTeamsSelected,
-                        use24HourFormat = use24HourFormat,
-                        displayZone = displayZone,
-                        fixtures = footballState.schedule.fixtures,
-                        teamsByLeague = footballState.schedule.teamsByLeague,
-                        competitions = footballState.schedule.competitions
-                    )
-                    "Settings" -> SettingsScreen(
-                        use24HourFormat = use24HourFormat,
-                        onTimeFormatChanged = { use24HourFormat = it },
-                        selectedTimezone = selectedTimezone,
-                        onTimezoneChanged = { selectedTimezone = it },
-                        displayZone = displayZone,
-                        selectedCompetition = selectedCompetition,
-                        followedTeams = followedTeams,
-                        schedule = footballState.schedule
-                    )
+            ) { innerPadding ->
+                Column(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                    if (errorMessage != null) {
+                        Text(
+                            errorMessage,
+                            modifier = Modifier.padding(16.dp),
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    if (followedTeams == null || isSaving) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                                    MaterialTheme.shapes.large).padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                if (errorMessage == null) {
+                                    CircularProgressIndicator()
+                                    Text(if (isSaving) "Saving teams…" else "Loading saved teams…")
+                                } else {
+                                    Button(onClick = onRetry) { Text("Retry") }
+                                }
+                            }
+                        }
+                    } else {
+                        when (selectedTab) {
+                            "Utility" -> if (footballState.schedule == null) {
+                                ScheduleLoadScreen(footballState, onRetrySchedule)
+                            } else UtilityScreen(
+                                selectedCompetition = selectedCompetition,
+                                onCompetitionSelected = { selectedCompetition = it },
+                                followedTeams = followedTeams,
+                                onTeamsSelected = onTeamsSelected,
+                                use24HourFormat = use24HourFormat,
+                                displayZone = displayZone,
+                                fixtures = footballState.schedule.fixtures,
+                                teamsByLeague = footballState.schedule.teamsByLeague,
+                                competitions = footballState.schedule.competitions
+                            )
+                            "Settings" -> SettingsScreen(
+                                use24HourFormat = use24HourFormat,
+                                onTimeFormatChanged = { use24HourFormat = it },
+                                selectedTimezone = selectedTimezone,
+                                onTimezoneChanged = { selectedTimezone = it },
+                                displayZone = displayZone,
+                                selectedCompetition = selectedCompetition,
+                                followedTeams = followedTeams,
+                                schedule = footballState.schedule,
+                                themeMode = themeMode,
+                                onThemeModeChanged = onThemeModeChanged
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -209,7 +272,10 @@ fun UtilityApp(
 @Composable
 fun ScheduleLoadScreen(state: FootballUiState, onRetry: () -> Unit) {
     Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally,
+        Column(
+            modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                MaterialTheme.shapes.large).padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (state.isLoading) {
                 CircularProgressIndicator()
@@ -234,7 +300,6 @@ fun UtilityScreen(
     teamsByLeague: Map<String, List<String>>,
     competitions: List<String>
 ) {
-    var showFilterDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
     val now = Instant.now()
     val today = now.atZone(displayZone).toLocalDate()
@@ -252,85 +317,97 @@ fun UtilityScreen(
     if (followedTeams.isEmpty()) {
         ChooseTeamsPrompt(onChooseTeams = { showTeamsDialog = true })
     } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(24.dp),
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    "Football Schedule",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontSize = 20.sp,
+                    color = Color.White
+                )
+                GlassPanel(
+                    shape = RoundedCornerShape(50),
+                    tint = Color(0xFF4B8148).copy(alpha = 0.24f)
+                ) {
+                    TextButton(
+                        onClick = { showTeamsDialog = true },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color.White)
                     ) {
-                        OutlinedButton(onClick = { showTeamsDialog = true },
-                            modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text("My teams (${followedTeams.size})")
-                        }
-                        OutlinedButton(onClick = { showFilterDialog = true },
-                            modifier = Modifier.heightIn(min = 48.dp)) {
-                            Text("Filter")
-                        }
+                        Text("My teams (${followedTeams.size})")
                     }
                 }
             }
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SchedulePeriod.entries.forEach { period ->
-                        FilterChip(
-                            modifier = Modifier.weight(1f).heightIn(min = 48.dp),
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                            ),
-                            selected = selectedPeriod == period,
-                            onClick = { selectedPeriod = period },
-                            label = {
+            // One continuous panel: only the fixtures scroll beneath the period controls.
+            GlassPanel(
+                modifier = Modifier.fillMaxWidth().weight(1f).padding(bottom = 16.dp)
+            ) {
+                Column {
+                    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        SchedulePeriod.entries.forEach { period ->
+                            val active = selectedPeriod == period
+                            TextButton(
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .semantics { selected = active },
+                                onClick = { selectedPeriod = period },
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
+                                colors = ButtonDefaults.textButtonColors(
+                                    containerColor = Color.Transparent,
+                                    contentColor = if (active) Color.White else Color.White.copy(alpha = 0.55f)
+                                )
+                            ) {
                                 Text(
                                     period.label,
-                                    modifier = Modifier.fillMaxWidth(),
+                                    fontSize = 16.sp,
+                                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Medium,
                                     textAlign = TextAlign.Center
                                 )
                             }
-                        )
+                        }
                     }
-                }
-            }
-            if (visibleFixtures.isEmpty()) {
-                if (selectedPeriod != SchedulePeriod.UPCOMING) {
-                    item {
-                        DateHeader(selectedDate, today)
+                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp),
+                        color = Color.White.copy(alpha = 0.2f))
+                    LazyColumn(
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp)
+                    ) {
+                        if (visibleFixtures.isEmpty()) {
+                            if (selectedPeriod != SchedulePeriod.UPCOMING) {
+                                item { DateHeader(selectedDate, today) }
+                            }
+                            item {
+                                Text("No matches for these filters.",
+                                    modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    textAlign = TextAlign.Center)
+                            }
+                        }
+                        fixturesByDate.forEach { (date, matches) ->
+                            item(key = "date-$date") { DateHeader(date, today) }
+                            matches.groupBy { it.competition }.forEach { (competition, competitionMatches) ->
+                                item(key = "competition-$date-$competition") {
+                                    CompetitionHeader(competition, competitionMatches.first().competitionEmblem)
+                                }
+                                items(competitionMatches) { match ->
+                                    MatchRow(match, use24HourFormat, displayZone)
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.16f))
+                                }
+                            }
+                        }
                     }
-                }
-                item {
-                    Text("No matches for these filters.", style = MaterialTheme.typography.bodyLarge)
-                }
-            }
-            fixturesByDate.forEach { (date, matches) ->
-                item(key = "date-$date") {
-                    DateHeader(date, today)
-                }
-                items(matches) { match ->
-                    MatchCard(match, use24HourFormat, displayZone)
                 }
             }
         }
-    }
-    if (showFilterDialog) {
-        CompetitionFilterDialog(
-            selectedCompetition = selectedCompetition,
-            competitions = competitions,
-            onCompetitionSelected = {
-                onCompetitionSelected(it)
-                showFilterDialog = false
-            },
-            onDismiss = { showFilterDialog = false }
-        )
     }
     if (showTeamsDialog) {
         MyTeamsDialog(
@@ -351,13 +428,15 @@ fun ChooseTeamsPrompt(onChooseTeams: () -> Unit) {
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Football Schedule", style = MaterialTheme.typography.headlineMedium)
+        Text("Football Schedule", style = MaterialTheme.typography.headlineMedium, color = Color.White)
         Box(
             modifier = Modifier.fillMaxWidth().weight(1f),
             contentAlignment = Alignment.Center
         ) {
             Column(
-                modifier = Modifier.verticalScroll(rememberScrollState()),
+                modifier = Modifier.verticalScroll(rememberScrollState())
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f),
+                        MaterialTheme.shapes.large).padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
@@ -457,70 +536,61 @@ fun DateHeader(date: LocalDate, today: LocalDate) {
     }
     Text(
         text = date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)) + relativeLabel,
-        modifier = Modifier.fillMaxWidth().semantics { heading() },
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).semantics { heading() },
         style = MaterialTheme.typography.titleMedium,
+        color = Color.White,
         textAlign = TextAlign.Center
     )
 }
 
 @Composable
-fun MatchCard(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId) {
+fun CompetitionHeader(name: String, emblem: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp).semantics { heading() },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        FootballBadge(emblem, name, Modifier.size(26.dp))
+        Text(name, style = MaterialTheme.typography.labelLarge, color = Color.White)
+    }
+}
+
+@Composable
+fun MatchRow(match: MatchFixture, use24HourFormat: Boolean, displayZone: ZoneId) {
     val displayedTime = if (match.status == MatchStatus.SCHEDULED) "Time TBC" else match.kickoff.atZone(displayZone).format(
         DateTimeFormatter.ofPattern(if (use24HourFormat) "HH:mm" else "h:mm a", Locale.ENGLISH)
     )
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    val showScore = match.status in setOf(MatchStatus.FINISHED, MatchStatus.IN_PLAY, MatchStatus.PAUSED, MatchStatus.AWARDED)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
+        FixtureTeam(match.homeTeam, match.homeCrest, Modifier.weight(1f))
+        Column(modifier = Modifier.weight(1.2f), horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
-                text = "$displayedTime · ${match.competition}",
+                if (showScore) "${match.homeScore ?: "–"} – ${match.awayScore ?: "–"}" else displayedTime,
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary,
+                color = Color.White,
                 textAlign = TextAlign.Center
             )
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = match.homeTeam,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
-                )
-                Text(
-                    text = if (match.status in setOf(MatchStatus.FINISHED, MatchStatus.IN_PLAY, MatchStatus.PAUSED, MatchStatus.AWARDED)) {
-                        "${match.homeScore ?: "–"} - ${match.awayScore ?: "–"}"
-                    } else "VS",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = match.awayTeam,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    textAlign = TextAlign.Center
-                )
-            }
-            Surface(
-                shape = RoundedCornerShape(50),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ) {
-                Text(
-                    text = match.status.label,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelMedium
-                )
+            if (match.status != MatchStatus.TIMED) {
+                Text(match.status.label, style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.6f), textAlign = TextAlign.Center)
             }
         }
+        FixtureTeam(match.awayTeam, match.awayCrest, Modifier.weight(1f))
+    }
+}
+
+@Composable
+fun FixtureTeam(name: String, crest: String?, modifier: Modifier = Modifier) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FootballBadge(crest, name, Modifier.size(40.dp))
+        Text(name, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.65f),
+            textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -577,18 +647,23 @@ fun SettingsScreen(
     displayZone: ZoneId,
     selectedCompetition: String,
     followedTeams: List<String>,
-    schedule: FootballSchedule?
+    schedule: FootballSchedule?,
+    themeMode: ThemeMode,
+    onThemeModeChanged: (ThemeMode) -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp)
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.96f), MaterialTheme.shapes.large)
+            .verticalScroll(rememberScrollState()).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text("Settings", style = MaterialTheme.typography.headlineMedium)
+        ThemeSettingsCard(themeMode, onThemeModeChanged)
         Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
-    ) {
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -659,6 +734,35 @@ fun SettingsScreen(
                 ) {
                     RadioButton(selected = selectedTimezone == zoneId, onClick = null)
                     Text(label, style = MaterialTheme.typography.bodyLarge)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ThemeSettingsCard(themeMode: ThemeMode, onThemeModeChanged: (ThemeMode) -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp).selectableGroup()) {
+            Text("Appearance", style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() })
+            ThemeMode.entries.forEach { mode ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)
+                        .selectable(
+                            selected = themeMode == mode,
+                            role = Role.RadioButton,
+                            onClick = { onThemeModeChanged(mode) }
+                        ).padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    RadioButton(selected = themeMode == mode, onClick = null)
+                    Text(mode.label, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }

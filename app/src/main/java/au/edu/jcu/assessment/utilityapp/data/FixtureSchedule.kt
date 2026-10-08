@@ -12,7 +12,10 @@ data class MatchFixture(
     val kickoff: Instant,
     val status: MatchStatus = MatchStatus.SCHEDULED,
     val homeScore: Int? = null,
-    val awayScore: Int? = null
+    val awayScore: Int? = null,
+    val homeCrest: String? = null,
+    val awayCrest: String? = null,
+    val competitionEmblem: String? = null
 )
 
 enum class MatchStatus(val label: String) {

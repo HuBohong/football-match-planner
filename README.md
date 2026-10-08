@@ -6,7 +6,8 @@ in the user's chosen timezone.
 
 ## Current progress
 
-- Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded cards and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
+- A vertical green background keeps the lower two thirds deep green, with a transition to the sampled lighter green in the upper third; navigation uses light icons and labels, while text panels retain readable surfaces.
+- Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded panels and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
 
 - Real current-season Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League teams and fixtures from [football-data.org](https://www.football-data.org/).
 - Retrofit and Gson fetch and parse twelve successful requests on an uncached load: teams and matches for each competition. No automatic polling.
@@ -15,8 +16,8 @@ in the user's chosen timezone.
 - My teams selects current Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League teams; each competition has its own complete, expandable team list. Following a team in one list updates the same team in the other lists, without duplicate saved selections. Following a club includes its matches across all loaded competitions. Team selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
 - Previously followed teams outside current coverage remain available to remove. Their matches are not yet fetched.
 - Yesterday, Today and Upcoming filter followed teams' matches. Upcoming includes future scheduled fixtures, grouped and ordered by kickoff.
-- Home offers a competition filter and equally sized period controls. Cards show opposing teams, kickoff, status and available scores.
-- Filter offers All competitions, Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League.
+- Home offers equally sized text-only period controls within one continuous frosted-glass schedule panel. Date headings and match rows share the panel, separated by thin lines; the fixture list scrolls under the period controls. The panel uses a blurred copy of the underlying gradient, translucent tint and a subtle light border; text stays sharp. Android 12+ supports backdrop-layer blur, while older devices retain the translucent appearance. Within each local date, matches are grouped by competition with its API-provided emblem. Compact match rows show each team crest above its name, with kickoff or score in the centre. Coil loads PNG/SVG images with memory and disk caching; missing images fall back to initials.
+- Settings offers Follow system, Light and Dark appearance. Theme selection updates the entire app and system-bar icon contrast immediately, survives configuration changes, and is not stored permanently.
 - Settings controls 12/24-hour time and timezone (Device, Beijing, Brisbane, London, UTC), and shows source, coverage and update time.
 - All date filtering and grouping use the selected timezone. Settings survive configuration changes, but are not permanently stored.
 - Free-plan scores may be delayed; schedules can change. Teams are cached locally for 24 hours and matches for 3 hours. Fresh cached responses are reused after app restarts. Each successful endpoint is saved immediately, so retries preserve partial progress. Expired entries are fetched again on the next app load; there is no stale offline fallback. Settings displays the oldest match-response timestamp, including cached responses.
@@ -95,3 +96,7 @@ It provides the structure for a simple tabular UI using **Jetpack Compose** and 
 ## 馃摎 License
 This template is provided for educational use in CP3406.  
 Feel free to modify and extend it for your assessment.
+
+### Reference colour samples
+
+The page colours were sampled as 5 × 5 pixel medians from the supplied Apple Sports screenshot, excluding text and red annotations: top background `#396832` at (744, 140), bottom background `#182A15` at (539, 1515), and light button `#4B8148` at (1105, 232). The gradient reaches the bottom colour at 34% of the screen height. The glass tint uses the sampled panel bottom `#1C2B19` at (780, 1520) with transparency over a blurred copy of the page background.
