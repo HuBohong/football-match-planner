@@ -7,7 +7,7 @@ in the user's chosen timezone.
 ## Current progress
 
 - My teams opens from a round glass icon button. A native Compose menu-to-X morph follows the [Morphicons](https://github.com/guillermolg00/morphicons) smooth spring parameters (stiffness 170, damping 26) and 2px round strokes; it reverses on dismissal. This is a native rendition, not use of the JavaScript package.
-- The button expands left/down into a floating competition overview, anchored at the same top-right corner. Only the card's backdrop is blurred from a recorded page graphics layer; no full-screen dimming or page movement occurs. Close, outside tap and Android Back collapse it. Edit teams temporarily retains the existing selection dialog while the inline team-selection view is developed separately.
+- The button expands left/down into a floating competition overview, anchored at the same top-right corner. Only the card's backdrop is blurred from a recorded page graphics layer; no full-screen dimming or page movement occurs. Close, outside tap and Android Back collapse it. Edit teams opens the team-selection dialog; match details and additional detail screens are outside the app's scope.
 
 - A vertical green background keeps the lower two thirds deep green, with a transition to the sampled lighter green in the upper third; navigation uses light icons and labels, while text panels retain readable surfaces.
 - Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded panels and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
@@ -16,12 +16,14 @@ in the user's chosen timezone.
 - Retrofit and Gson fetch and parse twelve successful requests on an uncached load: teams and matches for each competition. No automatic polling.
 - FootballRepository maps API timestamps, match statuses and nullable scores to display models.
 - FootballViewModel exposes loading, success and retryable error states. The Activity injects its repository through a factory.
+- Home uses matching glass panels for loading, retryable errors and first-time team selection. Empty schedules explain the selected period, with View upcoming or Edit teams actions. Status messages support accessibility announcements, and Settings remains accessible while saved teams or matches are unavailable.
 - My teams selects current Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League teams; each competition has its own complete, expandable team list. Following a team in one list updates the same team in the other lists, without duplicate saved selections. Following a club includes its matches across all loaded competitions. Team selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
 - Previously followed teams outside current coverage remain available to remove. Their matches are not yet fetched.
 - Yesterday, Today and Upcoming filter followed teams' matches. Upcoming includes future scheduled fixtures, grouped and ordered by kickoff.
 - Home offers equally sized text-only period controls within one continuous frosted-glass schedule panel. Date headings and match rows share the panel, separated by thin lines; the fixture list scrolls under the period controls. The panel uses a blurred copy of the underlying gradient, translucent tint and a subtle light border; text stays sharp. Android 12+ supports backdrop-layer blur, while older devices retain the translucent appearance. Within each local date, matches are grouped by competition with its API-provided emblem. Compact match rows show each team crest above its name, with kickoff or score in the centre. Coil loads PNG/SVG images with memory and disk caching; missing images fall back to initials.
-- Settings offers Follow system, Light and Dark appearance. Theme selection updates the entire app and system-bar icon contrast immediately, survives configuration changes, and is not stored permanently.
+- Settings uses a sun/moon icon toggle for Light and Dark appearance, with a separate action to return to the device setting. The native Compose outline morph uses Morphicons' snappy spring parameters (stiffness 420, damping 30). Theme selection updates Material theme surfaces, survives configuration changes, and is not stored permanently. The reference green backdrop stays consistent across both modes.
 - Settings controls 12/24-hour time and timezone (Device, Beijing, Brisbane, London, UTC), and shows source, coverage and update time.
+- Settings uses the shared green backdrop and three glass panels for appearance, time/timezone, and schedule information. White controls and labels retain the existing settings behaviour; information is placed after the interactive settings.
 - All date filtering and grouping use the selected timezone. Settings survive configuration changes, but are not permanently stored.
 - Free-plan scores may be delayed; schedules can change. Teams are cached locally for 24 hours and matches for 3 hours. Fresh cached responses are reused after app restarts. Each successful endpoint is saved immediately, so retries preserve partial progress. Expired entries are fetched again on the next app load; there is no stale offline fallback. Settings displays the oldest match-response timestamp, including cached responses.
 - HTTP 429 waits for Retry-After (or 65 seconds when absent), then retries the failed endpoint once. The UI explains the wait. A completely uncached six-competition load exceeds the free 10-call/minute quota and may need this wait; reopening with fresh responses avoids those requests. Repeated throttling exposes Retry while retaining saved responses.
@@ -43,6 +45,11 @@ An internet connection and an account with Premier League, Serie A, Ligue 1, La 
 
 Run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest`.
 Tests cover UTC/local-date conversion, daylight-saving ordering, date filters, saved team restoration, authenticated Retrofit requests, score/status parsing, merged competitions, shared-team selection, denied API access, automatic quota recovery, partial-progress retry, persistent cache restoration, expiration and corrupt-cache handling.
+
+`app/src/debug/java/au/edu/jcu/assessment/utilityapp/ui/ScheduleStatePreviews.kt`
+provides interactive previews of loading, connection errors, first-time selection,
+empty periods and saved-team errors. These use local preview data and make no API
+requests; they are excluded from release builds.
 
 ## Original starter documentation
 

@@ -45,12 +45,12 @@ class FootballViewModel(
             try {
                 mutableUiState.value = FootballUiState(schedule = repository.loadSchedule { seconds ->
                     mutableUiState.value = FootballUiState(loadingMessage =
-                        "API limit reached. Waiting about $seconds seconds, then continuing automatically…")
+                        "The football service is busy. Waiting about $seconds seconds, then continuing automatically…")
                 }, isLoading = false)
             } catch (error: HttpException) {
                 val message = when (error.code()) {
                     401, 403 -> "API access denied. Check your token and competition access."
-                    429 -> "API is still limiting requests. Try again later; already loaded data has been saved."
+                    429 -> "The football service is still busy. Please try again in a few minutes."
                     else -> "Football service unavailable. Please retry later."
                 }
                 mutableUiState.value = FootballUiState(isLoading = false, errorMessage = message)
