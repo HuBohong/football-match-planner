@@ -1,112 +1,152 @@
 # Football Match Planner
 
-Built from the lecturer's MobileTech Utility App starter for CP3406 Assessment 1.
-The planned purpose is to bring football fixtures together and display kickoff times
-in the user's chosen timezone.
+A football utility app developed from the lecturer's **MobileTech Utility App** starter for **CP3406 Assessment 1**.
 
-## Current progress
+The app helps football fans see when their favourite teams play across different competitions, with kickoff times and dates converted to their chosen timezone. Home presents essential schedule information at a glance; Settings controls its display. The app retains the starter's single Activity and bottom navigation.
 
-- My teams opens from a round glass icon button. A native Compose menu-to-X morph follows the [Morphicons](https://github.com/guillermolg00/morphicons) smooth spring parameters (stiffness 170, damping 26) and 2px round strokes; it reverses on dismissal. This is a native rendition, not use of the JavaScript package.
-- The button expands left/down into a floating competition overview, anchored at the same top-right corner. Only the card's backdrop is blurred from a recorded page graphics layer; no full-screen dimming or page movement occurs. Close, outside tap and Android Back collapse it. Edit teams opens the team-selection dialog; match details and additional detail screens are outside the app's scope.
+## Features
 
-- A vertical green background keeps the lower two thirds deep green, with a transition to the sampled lighter green in the upper third; navigation uses light icons and labels, while text panels retain readable surfaces.
-- Consistent football-green Material 3 theme, with coordinated light/dark surfaces, rounded panels and readable text. System dark mode is supported; wallpaper dynamic colors are disabled by default.
+### Home and My teams
 
-- Real current-season Premier League, Serie A, Ligue 1, La Liga, Bundesliga and UEFA Champions League teams and fixtures from [football-data.org](https://www.football-data.org/).
-- Retrofit and Gson fetch and parse twelve successful requests on an uncached load: teams and matches for each competition. No automatic polling.
-- FootballRepository maps API timestamps, match statuses and nullable scores to display models.
-- FootballViewModel exposes loading, success and retryable error states. The Activity injects its repository through a factory.
-- Home uses matching glass panels for loading, retryable errors and first-time team selection. Empty schedules explain the selected period, with View upcoming or Edit teams actions. Status messages support accessibility announcements, and Settings remains accessible while saved teams or matches are unavailable.
-- My teams selects current Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League teams; each competition has its own complete, expandable team list. Following a team in one list updates the same team in the other lists, without duplicate saved selections. Following a club includes its matches across all loaded competitions. Team selections persist locally through DataStore and TeamPreferencesViewModel. Cancel discards draft edits.
-- Previously followed teams outside current coverage remain available to remove. Their matches are not yet fetched.
-- Yesterday, Today and Upcoming filter followed teams' matches. Upcoming includes future scheduled fixtures, grouped and ordered by kickoff.
-- Home offers equally sized text-only period controls within one continuous frosted-glass schedule panel. Date headings and match rows share the panel, separated by thin lines; the fixture list scrolls under the period controls. The panel uses a blurred copy of the underlying gradient, translucent tint and a subtle light border; text stays sharp. Android 12+ supports backdrop-layer blur, while older devices retain the translucent appearance. Within each local date, matches are grouped by competition with its API-provided emblem. Compact match rows show each team crest above its name, with kickoff or score in the centre. Coil loads PNG/SVG images with memory and disk caching; missing images fall back to initials.
-- Settings uses a sun/moon icon toggle for Light and Dark appearance, with a separate action to return to the device setting. The native Compose outline morph uses Morphicons' snappy spring parameters (stiffness 420, damping 30). Theme selection updates Material theme surfaces, survives configuration changes, and is not stored permanently. The reference green backdrop stays consistent across both modes.
-- Settings controls 12/24-hour time and timezone (Device, Beijing, Brisbane, London, UTC), and shows source, coverage and update time.
-- Settings uses the shared green backdrop and three glass panels for appearance, time/timezone, and schedule information. White controls and labels retain the existing settings behaviour; information is placed after the interactive settings.
-- All date filtering and grouping use the selected timezone. Settings survive configuration changes, but are not permanently stored.
-- Free-plan scores may be delayed; schedules can change. Teams are cached locally for 24 hours and matches for 3 hours. Fresh cached responses are reused after app restarts. Each successful endpoint is saved immediately, so retries preserve partial progress. Expired entries are fetched again on the next app load; there is no stale offline fallback. Settings displays the oldest match-response timestamp, including cached responses.
-- HTTP 429 waits for Retry-After (or 65 seconds when absent), then retries the failed endpoint once. The UI explains the wait. A completely uncached six-competition load exceeds the free 10-call/minute quota and may need this wait; reopening with fresh responses avoids those requests. Repeated throttling exposes Retry while retaining saved responses.
-- Competition scope is the five major European domestic leagues and UEFA Champions League. World Cup is outside the current scope.
+- Follow teams through expandable competition lists. A club appearing in more than one list shares the same selection, and its matches are included across all loaded competitions.
+- Save followed teams locally with DataStore. Save applies draft selections; Cancel discards them. Previously saved teams outside current coverage can still be removed.
+- Switch between **Yesterday**, **Today** and **Upcoming**. Yesterday and Today use calendar dates in the selected timezone. Upcoming shows future fixtures with scheduled or confirmed kickoff status.
+- Browse matches grouped by local date and then competition. Dates and competitions follow kickoff order; matches within each competition are sorted by kickoff.
+- View competition emblems, team crests and names, kickoff times or available scores, and match status. Unconfirmed kickoff times display **Time TBC**.
+- Open the glass **My teams** menu for a competition overview and an **Edit teams** action. Its menu icon animates into a close icon; outside taps and Android Back dismiss it.
+- See loading, API-wait, retryable error, first-time selection and empty-schedule states, with actions to recover or select teams. Settings remains accessible when schedule or saved-team loading fails.
 
-## API setup
+### Settings
 
-Add your own token to the project-root `local.properties` alongside the existing SDK path:
+- Choose **12-hour or 24-hour** kickoff display.
+- Choose **Phone timezone**, **Beijing**, **Brisbane**, **London** or **UTC**. Date filtering and grouping use this selection as well as displayed times.
+- Toggle **Light/Dark** Material appearance with an animated sun/moon icon, or return to the device setting. The green backdrop and glass-panel styling remain consistent in both modes.
+- View the data source, competition coverage, followed teams, active timezone and schedule update timestamp.
 
-```properties
-FOOTBALL_API_TOKEN=your_token_here
-```
+Theme, time-format and timezone selections use `rememberSaveable` to survive supported state restoration, including configuration changes. They are not permanently stored. Followed teams are stored separately in DataStore and restored after app restarts.
 
-Sync Gradle and rebuild. `local.properties` is ignored by Git; do not commit API credentials.
-The build injects the token into BuildConfig; a compiled APK contains the credential, so this classroom setup is not suitable for protecting a production secret.
-An internet connection and an account with Premier League, Serie A, Ligue 1, La Liga, Bundesliga and Champions League access are required.
+## Competition coverage
+
+Teams and current-season fixtures are fetched from [football-data.org](https://www.football-data.org/).
+
+| Competition | API code |
+| --- | --- |
+| Premier League | `PL` |
+| Serie A | `SA` |
+| Ligue 1 | `FL1` |
+| La Liga | `PD` |
+| Bundesliga | `BL1` |
+| UEFA Champions League | `CL` |
+
+The configured API account must have access to all six competitions. Coverage is limited to the competitions and fixtures returned by these endpoints.
+
+## Running the app
+
+1. Clone or download this repository. Open the **project root containing settings.gradle.kts** in Android Studio, rather than the app folder. Android Studio currently displays the project as **MobileTech_UtilityApp**, its original template name.
+2. Use an Android Studio installation compatible with the project's build configuration. Install **Android SDK Platform 36**. The minimum runtime version is **Android 8.0 / API 26**.
+3. Allow Gradle sync to resolve dependencies and the **JetBrains JDK 21** requested by `gradle/gradle-daemon-jvm.properties`. The wrapper uses **Gradle 9.6.0**; the project declares **Android Gradle Plugin 9.4.1** and **Kotlin 2.2.10**. These are the checked-in project versions.
+4. Create an API account with the required competition access and obtain a token. In the project-root `local.properties`, preserve Android Studio's `sdk.dir` entry and add:
+
+   ```properties
+   FOOTBALL_API_TOKEN=your_token_here
+   ```
+
+5. Sync Gradle and build. Select the **app** run configuration and an emulator or connected Android device, then Run.
+6. On the first successful load, choose **Choose my teams**, expand a competition, select teams and tap **Done**. Use **My teams > Edit teams** to change selections later.
+
+The installed launcher label is currently **MobileTech Utility App**; the Home heading is **Football Schedule**.
+
+`local.properties` is ignored by Git. Each developer or marker supplies their own SDK path and API token. The token is injected into `BuildConfig` at build time, so changing it requires a rebuild. The compiled app contains the token; this classroom configuration does not protect a production credential.
+
+## Implementation and project structure
+
+The app uses **Kotlin, Jetpack Compose and Material 3**, with **Retrofit/Gson** for API requests, **DataStore** for followed teams and **Coil** for PNG/SVG badges.
+
+Production Kotlin files are under `app/src/main/java/au/edu/jcu/assessment/utilityapp/`.
+
+| File or directory | Responsibility |
+| --- | --- |
+| `MainActivity.kt` | Creates dependencies and ViewModel factories, collects state with collectAsStateWithLifecycle, and hosts UtilityApp with bottom navigation and shared display preferences. |
+| `ui/HomeScreen.kt` | Shows followed-team fixtures, switches Yesterday/Today/Upcoming, and coordinates the My teams menu and selection dialog. |
+| `ui/FixtureComponents.kt` | Reusable date headings, competition headings and match rows with team badges, names, kickoff times or scores. |
+| `ui/MyTeamsDialog.kt` | Edits a draft team selection grouped by competition; Done saves it and Cancel leaves the current selection unchanged. |
+| `ui/SettingsScreen.kt` | Theme controls, time format, timezone and schedule information. Receives preferences and change callbacks from UtilityApp. |
+| `ui/FootballViewModel.kt` | Loads the schedule in viewModelScope and exposes loading, success, quota-wait and error states through StateFlow. Prevents overlapping load jobs. |
+| `data/FootballRepository.kt` | Loads teams and matches for each competition, maps API data to display models, and coordinates caching and quota recovery. |
+| `data/remote/FootballApi.kt` | Retrofit endpoints, response DTOs and the authenticated API client. |
+| `data/FixtureSchedule.kt` | Match/status models, selected-period filtering and local-date grouping. Kickoffs are stored as absolute Instant values. |
+| `data/FootballResponseCache.kt` | In-memory and disk response caching, timestamps and expiry checks. |
+| `ui/TeamPreferencesViewModel.kt` | Observes saved teams and manages save/loading errors through StateFlow. |
+| `data/TeamPreferencesRepository.kt` | Reads and writes followed teams in Preferences DataStore. |
+| `ui/GlassPanel.kt`, `ui/TeamsMenuPanel.kt` | Shared glass surfaces and the expanding My teams menu. |
+| `ui/FootballBadge.kt` | Loads public badge images through Coil, with initials as a loading/error fallback. Image requests do not use the authenticated football API client. |
+| `ui/MorphingTeamsIcon.kt`, `ui/MorphingThemeIcon.kt` | Native Compose Canvas icon animations. |
+| `ui/ScheduleStatus.kt` | Reusable loading, error, onboarding and empty-state presentation. |
+| `ui/theme/` | Material colour schemes, typography and theme-mode definitions. |
+
+Dependencies are supplied through constructors and ViewModel factories: **manual dependency injection**, rather than a DI framework. Composables receive state and callbacks; ViewModels coordinate work, and repositories handle network/storage operations.
+
+## Cache, refresh and error handling
+
+- A fully uncached load needs **12 successful API calls**: one teams request and one matches request for each competition. Badge downloads are separate from these API calls.
+- Team responses are cached for **24 hours** and match responses for **3 hours** in the app's private files directory. Fresh responses are reused after process restarts.
+- Each successful endpoint is saved immediately. If a later request fails, a retry reuses responses already cached instead of repeating the whole load.
+- HTTP **429** waits for Retry-After, or **65 seconds** when no usable header is present, then retries the failed endpoint once. The UI explains the wait. Repeated throttling shows a Retry action.
+- Missing credentials, denied access, network failures and unreadable responses produce explanatory error states.
+- There is **no automatic polling or periodic background refresh**. Cache expiry is checked when the repository loads again, such as after a new app process starts or a failed load is retried. Simply switching Home/Settings does not refresh it.
+- Settings shows the **oldest match-response timestamp** across loaded competitions, including reused cached responses. This is a fetch timestamp, not the time the provider last changed a fixture.
+
+## UI and accessibility implementation
+
+Home uses a continuous glass schedule panel, equal-width period controls, competition headings and compact match rows. The green gradient, glass tint and expanding menu were informed by the supplied Apple Sports references.
+
+The implementation includes labelled controls, selected/expanded state semantics, date and competition headings, and live announcements for status messages. Badge descriptions are omitted where adjacent text already identifies the team or competition. Settings rows and main icon controls use at least 48 dp touch areas. Settings, the schedule and status content support scrolling.
+
+On Android 12 and later, glass backdrops use blur; older supported devices retain translucent surfaces. Backdrop and foreground content are drawn separately so text is not blurred. These choices do not establish that every layout or accessibility scenario has been verified.
 
 ## Validation
 
-Run `gradlew.bat :app:assembleDebug :app:testDebugUnitTest`.
-Tests cover UTC/local-date conversion, daylight-saving ordering, date filters, saved team restoration, authenticated Retrofit requests, score/status parsing, merged competitions, shared-team selection, denied API access, automatic quota recovery, partial-progress retry, persistent cache restoration, expiration and corrupt-cache handling.
+From the project root in PowerShell:
 
-`app/src/debug/java/au/edu/jcu/assessment/utilityapp/ui/ScheduleStatePreviews.kt`
-provides interactive previews of loading, connection errors, first-time selection,
-empty periods and saved-team errors. These use local preview data and make no API
-requests; they are excluded from release builds.
+```powershell
+.\gradlew.bat :app:assembleDebug :app:testDebugUnitTest --console=plain
+```
 
-## Original starter documentation
+Use `./gradlew` for the equivalent command on macOS or Linux.
 
-This is a basic Android app template for **Assessment 1: Utility App**.
-It provides the structure for a simple tabular UI using **Jetpack Compose** and **Material Design 3**.
+Tests in `app/src/test/java/au/edu/jcu/assessment/utilityapp/data/` cover:
 
----
+- Local-date period filtering, timezone changes and kickoff ordering at daylight-saving transitions.
+- Saved-team restoration and clearing.
+- Authenticated Retrofit requests, match status/score mapping, combined competition data and shared-team selection.
+- Denied access, quota retry, partial-progress recovery and reuse of cached responses.
+- Disk-cache restoration, original timestamps, expiration and corrupt entries.
 
-## Getting Started
+The network tests use MockWebServer and local fixtures, not a real API token or quota. These unit tests do not verify every visual layout or live-provider response.
 
-### How to Run
-1. Clone or download this repo  
-2. Open in Android Studio  
-3. Run on an emulator or physical device (API 26+ recommended)  
+`app/src/debug/java/au/edu/jcu/assessment/utilityapp/ui/ScheduleStatePreviews.kt` provides interactive Compose previews for loading/quota wait, connection errors, first-time team selection, empty schedules and saved-team errors. They use local data, make no football API calls and are excluded from release builds.
 
----
+## Known limitations
 
-## Composables
+- Scores and schedules reflect the fetched snapshot. Free-plan scores may be delayed, kickoff times can change, and there are no live score updates.
+- Expired cache entries are not displayed as an offline fallback. A failed required endpoint prevents completion of the full schedule load, although successful responses remain cached.
+- Date labels are calculated when Home recomposes; there is no midnight timer to update an untouched screen automatically.
+- Team selections are matched by the provider's display names rather than stable team IDs. Provider renaming can therefore affect previously saved selections.
+- The interface and date formatting are currently English. Match-detail screens, reminders and calendar export are outside the current implementation.
 
-### UtilityApp()
-- Contains the screen layout using a Scaffold
-- Toggles content between Utility and Settings
+## Coursework and references
 
-### UtilityScreen()
-- Displays a simple counter (replace with your utility logic)  
-- Includes a button to increment the counter
+| Course topic | Implementation |
+| --- | --- |
+| Week 1: Kotlin and Android Studio | Kotlin Android project based on the lecturer's starter. |
+| Week 2: Compose layouts | Home/Settings composables, rows, columns, state and user callbacks. |
+| Week 3: Material Design 3 | Material components, theme definitions, scrollable lists and accessibility semantics. |
+| Week 4: App architecture | ViewModels, repositories, StateFlow, lifecycle-aware collection and manual DI. |
+| Week 5: Web APIs | Retrofit/Gson integration with the football data provider. |
 
-### SettingsScreen()
-- Placeholder for user preferences or configuration  
-- Can be extended to modify main screen behavior (e.g., theme, units, limits)  
+- **Starter:** the lecturer-provided MobileTech Utility App template. Its educational-use notice is retained here: provided for CP3406 and permitted to be modified and extended for the assessment.
+- **Football data and badge URLs:** [football-data.org](https://www.football-data.org/).
+- **Visual references:** user-supplied Apple Sports screenshots/video, used to inform the gradient, glass surfaces, schedule grouping and team-menu interaction.
+- **Animation reference:** [Morphicons](https://github.com/guillermolg00/morphicons). The icons are native Compose renditions, not the React package. The menu morph follows smooth spring stiffness 170/damping 26; the sun/moon morph follows snappy stiffness 420/damping 30.
 
----
-
-## Key Concepts Covered
-
-| Week | Concept                        | Used In                          |
-|------|--------------------------------|----------------------------------|
-| 1    | Kotlin + Android Studio         | MainActivity.kt |
-| 2    | Jetpack Compose Layouts         | UtilityApp(), UtilityScreen(), SettingsScreen()   |
-| 3    | Material Design 3               | MobileTechUtilityAppTheme, MaterialTheme.typography |
-| 4    | ViewModel | Not included in starter          |
-| 5    | Retrofit  | Not included in starter          |
-
----
-
-## Suggested Extensions
-- Replace counter with a real utility (e.g., hydration tracker, timer)  
-- Add a ViewModel for state management  
-- Use SharedPreferences or DataStore to persist settings  
-- Add a simple API call using Retrofit (e.g., fetch weather or quotes)  
-
----
-
-## 馃摎 License
-This template is provided for educational use in CP3406.  
-Feel free to modify and extend it for your assessment.
-
-### Reference colour samples
-
-The page colours were sampled as 5 × 5 pixel medians from the supplied Apple Sports screenshot, excluding text and red annotations: top background `#396832` at (744, 140), bottom background `#182A15` at (539, 1515), and light button `#4B8148` at (1105, 232). The gradient reaches the bottom colour at 34% of the screen height. The glass tint uses the sampled panel bottom `#1C2B19` at (780, 1520) with transparency over a blurred copy of the page background.
+Reference colours were sampled as 5 x 5 pixel medians from the supplied screenshot: top background `#396832` at (744, 140), bottom `#182A15` at (539, 1515), light button `#4B8148` at (1105, 232), and glass tint `#1C2B19` at (780, 1520). The page gradient reaches its bottom colour at 34% of screen height, keeping the lower two thirds deep green.
