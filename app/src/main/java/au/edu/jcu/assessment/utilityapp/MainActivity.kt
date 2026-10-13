@@ -181,8 +181,6 @@ fun UtilityApp(
     onThemeModeChanged: (ThemeMode) -> Unit = {}
 ) {
     var selectedTab by rememberSaveable { mutableStateOf("Utility") }
-    // Kept above the screen so changing tabs does not discard the filter.
-    var selectedCompetition by rememberSaveable { mutableStateOf("All competitions") }
     var use24HourFormat by rememberSaveable { mutableStateOf(true) }
     var selectedTimezone by rememberSaveable { mutableStateOf("Device") }
     val displayZone = if (selectedTimezone == "Device") ZoneId.systemDefault() else ZoneId.of(selectedTimezone)
@@ -235,7 +233,6 @@ fun UtilityApp(
                             selectedTimezone = selectedTimezone,
                             onTimezoneChanged = { selectedTimezone = it },
                             displayZone = displayZone,
-                            selectedCompetition = selectedCompetition,
                             followedTeams = followedTeams,
                             schedule = footballState.schedule,
                             themeMode = themeMode,
@@ -273,15 +270,12 @@ fun UtilityApp(
                         if (footballState.schedule == null) {
                             ScheduleLoadScreen(footballState, onRetrySchedule)
                         } else UtilityScreen(
-                            selectedCompetition = selectedCompetition,
-                            onCompetitionSelected = { selectedCompetition = it },
                             followedTeams = followedTeams,
                             onTeamsSelected = onTeamsSelected,
                             use24HourFormat = use24HourFormat,
                             displayZone = displayZone,
                             fixtures = footballState.schedule.fixtures,
-                            teamsByLeague = footballState.schedule.teamsByLeague,
-                            competitions = footballState.schedule.competitions
+                            teamsByLeague = footballState.schedule.teamsByLeague
                         )
                     }
                 }
@@ -304,15 +298,12 @@ fun ScheduleLoadScreen(state: FootballUiState, onRetry: () -> Unit) {
 
 @Composable
 fun UtilityScreen(
-    selectedCompetition: String,
-    onCompetitionSelected: (String) -> Unit,
     followedTeams: List<String>,
     onTeamsSelected: (List<String>) -> Unit,
     use24HourFormat: Boolean,
     displayZone: ZoneId,
     fixtures: List<MatchFixture>,
-    teamsByLeague: Map<String, List<String>>,
-    competitions: List<String>
+    teamsByLeague: Map<String, List<String>>
 ) {
     var showTeamsDialog by rememberSaveable { mutableStateOf(false) }
     var showTeamsMenu by rememberSaveable { mutableStateOf(false) }
@@ -325,10 +316,8 @@ fun UtilityScreen(
     val selectedDate = if (selectedPeriod == SchedulePeriod.YESTERDAY) today.minusDays(1) else today
     val visibleFixtures = fixtures.filter { match ->
         val matchesDate = match.matchesPeriod(selectedPeriod, now, displayZone)
-        val matchesCompetition = selectedCompetition == "All competitions" ||
-            match.competition == selectedCompetition
         val matchesTeam = match.homeTeam in followedTeams || match.awayTeam in followedTeams
-        matchesDate && matchesCompetition && matchesTeam
+        matchesDate && matchesTeam
     }
     val fixturesByDate = groupFixturesByLocalDate(visibleFixtures, displayZone)
 
@@ -620,57 +609,12 @@ fun FixtureTeam(name: String, crest: String?, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CompetitionFilterDialog(
-    selectedCompetition: String,
-    competitions: List<String>,
-    onCompetitionSelected: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Filter by competition") },
-            confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
-        },
-        text = {
-        Column(
-            modifier = Modifier.verticalScroll(rememberScrollState()).selectableGroup()
-        ) {
-            (listOf("All competitions") + competitions)
-                .forEach { competition ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 48.dp)
-                            .selectable(
-                                selected = selectedCompetition == competition,
-                                role = Role.RadioButton,
-                                onClick = { onCompetitionSelected(competition) }
-                            )
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        RadioButton(
-                            selected = selectedCompetition == competition,
-                            onClick = null
-                        )
-                        Text(competition, style = MaterialTheme.typography.bodyLarge)
-                    }
-                }
-        }
-        }
-    )
-}
-
-@Composable
 fun SettingsScreen(
     use24HourFormat: Boolean,
     onTimeFormatChanged: (Boolean) -> Unit,
     selectedTimezone: String,
     onTimezoneChanged: (String) -> Unit,
     displayZone: ZoneId,
-    selectedCompetition: String,
     followedTeams: List<String>?,
     schedule: FootballSchedule?,
     themeMode: ThemeMode,
@@ -739,7 +683,7 @@ fun SettingsScreen(
             }
             HorizontalDivider(color = Color.White.copy(alpha = 0.16f))
             Text("All times: ${displayZone.id}", style = MaterialTheme.typography.bodyMedium)
-            Text("Showing: $selectedCompetition", style = MaterialTheme.typography.bodyMedium)
+            Text("Showing: All competitions", style = MaterialTheme.typography.bodyMedium)
             Text("Following: ${followedTeams?.joinToString()?.ifEmpty { "No teams selected" } ?: "Not loaded"}",
                 style = MaterialTheme.typography.bodyMedium)
         }
